@@ -1,0 +1,21 @@
+# ===========================================================================
+# Trazza — override de DESARROLLO LOCAL
+# Buildea las imágenes localmente en vez de tirar de GHCR.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# ===========================================================================
+
+name: trazza
+
+services:
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: development
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile

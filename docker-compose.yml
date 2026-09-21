@@ -1,0 +1,119 @@
+# ===========================================================================
+# Trazza — stack de PRODUCCIÓN
+# Consume imágenes pre-buildeadas desde GHCR (ver .github/workflows/build.yml).
+# Expone SOLO los puertos de Web y API (+MinIO/MQTT opcionales) para que tu
+# Nginx Proxy Manager (NPM) los proxee con TLS. No incluye reverse proxy propio.
+#
+#   Deploy:  docker compose pull && docker compose up -d
+# ===========================================================================
+
+name: trazza
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  db:
+    image: timescale/timescaledb-ha:pg16
+    <<: *restart
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      APP_DB_USER: ${APP_DB_USER}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+    volumes:
+      - db-data:/home/postgres/pgdata/data
+      - ./infra/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [trazza]
+
+  redis:
+    image: redis:7-alpine
+    <<: *restart
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "no"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks: [trazza]
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    <<: *restart
+    volumes:
+      - ./infra/mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mqtt-data:/mosquitto/data
+    ports:
+      - "${MQTT_PORT:-1883}:1883"
+    networks: [trazza]
+
+  minio:
+    image: minio/minio:latest
+    <<: *restart
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio-data:/data
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9090}:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    networks: [trazza]
+
+  api:
+    image: ${IMAGE_REPO}/trazza-api:${IMAGE_TAG:-latest}
+    <<: *restart
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      INGEST_TOKEN: ${INGEST_TOKEN}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      # Expuesto para dispositivos / apps móviles vía NPM (api.tudominio.com)
+      - "${API_PORT:-8091}:8080"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks: [trazza]
+
+  web:
+    image: ${IMAGE_REPO}/trazza-web:${IMAGE_TAG:-latest}
+    <<: *restart
+    depends_on:
+      - api
+    ports:
+      # Frontend + landing vía NPM (app.tudominio.com). nginx proxea /api -> api:8080
+      - "${WEB_PORT:-8090}:8080"
+    networks: [trazza]
+
+volumes:
+  db-data:
+  redis-data:
+  mqtt-data:
+  minio-data:
+
+networks:
+  trazza:
+    driver: bridge
