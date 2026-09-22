@@ -112,6 +112,17 @@ BATT=$(curl -sf "$API/assets" "${auth[@]}" | jq --arg id "$ASSET" '[.assets[] | 
 [ "$BATT" = "77" ] || { echo "❌ el adapter de Traccar no actualizó el activo (battery=$BATT)"; exit 1; }
 echo "✓ adapter de Traccar → ingesta por IMEI verificada"
 
+# Alta de dispositivo LoRa + ingesta vía adapter LoRaWAN (formato ChirpStack).
+DEVEUI="0102030405060708"
+curl -sf -X POST "$API/devices" "${auth[@]}" -H 'Content-Type: application/json' \
+  -d "{\"kind\":\"lora\",\"identifier\":\"$DEVEUI\",\"assetId\":\"$ASSET\"}" >/dev/null
+curl -sf -X POST "$API/adapters/lorawan?tenantId=$TENANT&token=${INGEST_TOKEN}" \
+  -H 'Content-Type: application/json' \
+  -d "{\"deviceInfo\":{\"devEui\":\"$DEVEUI\"},\"object\":{\"latitude\":-32.90,\"longitude\":-68.85,\"battery\":63}}" >/dev/null
+LBATT=$(curl -sf "$API/assets" "${auth[@]}" | jq --arg id "$ASSET" '[.assets[] | select(.id==$id)][0].last_battery')
+[ "$LBATT" = "63" ] || { echo "❌ el adapter LoRaWAN no actualizó el activo (battery=$LBATT)"; exit 1; }
+echo "✓ adapter LoRaWAN (ChirpStack) → ingesta por DevEUI verificada"
+
 # Verificar aislamiento RLS: un tenant nuevo no ve el activo anterior.
 TOKEN2=$(curl -sf -X POST "$API/auth/register" -H 'Content-Type: application/json' \
   -d "{\"company\":\"Otra SA\",\"name\":\"B\",\"email\":\"smoke2+$(date +%s)@trazza.test\",\"password\":\"secret123\"}" | jq -r .token)

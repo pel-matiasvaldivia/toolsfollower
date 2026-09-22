@@ -28,9 +28,11 @@ export async function registerDeviceRoutes(app: FastifyInstance) {
   app.post('/devices', { preHandler: [app.authenticate] }, async (req, reply) => {
     const b = (req.body ?? {}) as Record<string, any>;
     const kind = KINDS.includes(b.kind) ? b.kind : null;
-    const identifier = typeof b.identifier === 'string' ? b.identifier.trim() : '';
+    let identifier = typeof b.identifier === 'string' ? b.identifier.trim() : '';
     if (!kind) return reply.code(400).send({ error: 'kind inválido (gps | lora | rfid)' });
     if (!identifier) return reply.code(400).send({ error: 'identifier requerido (IMEI/DevEUI/EPC)' });
+    // El DevEUI de LoRaWAN se guarda en minúscula (así lo emiten ChirpStack/TTS).
+    if (kind === 'lora') identifier = identifier.toLowerCase();
 
     return withTenant(req.user.tenant, async (c) => {
       try {

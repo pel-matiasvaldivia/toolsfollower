@@ -113,6 +113,7 @@ cd apps/web && npm install && npm run dev      # :5173 (proxya /api -> :8091)
 | PATCH/DELETE | `/devices/:id` | Vincular/desvincular a un activo o dar de baja |
 | POST | `/telemetry/ingest` | Ingesta de dispositivos (header `X-Ingest-Token`) |
 | POST | `/adapters/traccar` | Recibe el *position forwarding* JSON de Traccar |
+| POST | `/adapters/lorawan` | Recibe uplinks de ChirpStack v4 / The Things Stack v3 |
 
 Ejemplo de ingesta:
 ```bash
@@ -143,9 +144,16 @@ curl -X POST http://api.tudominio.com/telemetry/ingest \
      El `device.uniqueId` (IMEI) resuelve el activo en Trazza; `attributes.hours` (ms)
      se convierte a horas de motor y alimenta el mantenimiento por uso. El token viaja
      en el header `X-Ingest-Token` (variable `INGEST_TOKEN`).
-   - **LoRaWAN:** en el LNS (ChirpStack / The Things Stack) creá una integración
-     HTTP que haga `POST` a `/telemetry/ingest` con `deviceIdentifier` = DevEUI y el
-     payload decodificado a `lat`/`lng`/`battery`.
+   - **LoRaWAN (ChirpStack v4 / The Things Stack v3):** cargá un *codec* (payload
+     formatter) en el dispositivo que decodifique el payload a `latitude`/`longitude`
+     (y `battery`), y creá una integración HTTP en el LNS apuntando a:
+     ```
+     https://trazza.tudominio.com/api/adapters/lorawan?tenantId=<uuid>
+     header  X-Ingest-Token: <INGEST_TOKEN>
+     ```
+     El adapter detecta el formato de cada LNS y resuelve el activo por el **DevEUI**
+     (dalo de alta en minúscula). Los eventos sin GPS (join, status) se ignoran con
+     `202` para que el LNS no reintente.
    - **RFID:** el middleware del lector hace `POST` a `/telemetry/ingest` con el EPC
      leído en portería (presencia).
    - **Cualquiera con MQTT:** publican al broker Mosquitto (`:1883`); un bridge
@@ -173,5 +181,5 @@ curl -X POST http://api.tudominio.com/telemetry/ingest \
 
 MVP actual: auth multitenant, activos, custodia (esquema), ingesta de telemetría, KPIs y
 landing, mapa en vivo (MapLibre), geocercas + motor de alertas, mantenimiento por horas
-de uso, alta de dispositivos y adapter de Traccar (GPS/4G). Siguiente: webhook LoRaWAN
-(ChirpStack/TTS), bridge MQTT→ingest, credenciales por dispositivo y fotos a MinIO.
+de uso, alta de dispositivos y adapters de Traccar (GPS/4G) y LoRaWAN (ChirpStack/TTS).
+Siguiente: bridge MQTT→ingest, credenciales por dispositivo y fotos a MinIO.
