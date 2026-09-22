@@ -5,6 +5,7 @@ import { config } from './config.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerAssetRoutes } from './routes/assets.js';
 import { registerTelemetryRoutes } from './routes/telemetry.js';
+import { registerGeofenceRoutes } from './routes/geofences.js';
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {
@@ -38,6 +39,7 @@ app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
 await registerAuthRoutes(app);
 await registerAssetRoutes(app);
 await registerTelemetryRoutes(app);
+await registerGeofenceRoutes(app);
 
 try {
   await app.listen({ port: config.port, host: config.host });

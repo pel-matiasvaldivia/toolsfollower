@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { withTenant } from '../db.js';
 import { config } from '../config.js';
+import { evaluateGeofence } from '../services/geofence.js';
 
 /**
  * Ingesta de telemetría de dispositivos (webhook HTTP; el broker MQTT puede
@@ -54,6 +55,8 @@ export async function registerTelemetryRoutes(app: FastifyInstance) {
           [assetId, lng, lat, b.battery ?? null],
         );
       }
+
+      await evaluateGeofence(c, assetId, lng, lat);
       return reply.code(202).send({ accepted: true });
     });
   });
