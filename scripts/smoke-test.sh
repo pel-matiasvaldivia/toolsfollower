@@ -62,8 +62,10 @@ echo "✓ RLS por tenant aplicado ($RLS tablas)"
 
 echo "🧪 Flujo funcional…"
 EMAIL="smoke+$(date +%s)@trazza.test"
-TOKEN=$(curl -sf -X POST "$API/auth/register" -H 'Content-Type: application/json' \
-  -d "{\"company\":\"Smoke SA\",\"name\":\"Test\",\"email\":\"$EMAIL\",\"password\":\"secret123\"}" | jq -r .token)
+REG=$(curl -sf -X POST "$API/auth/register" -H 'Content-Type: application/json' \
+  -d "{\"company\":\"Smoke SA\",\"name\":\"Test\",\"email\":\"$EMAIL\",\"password\":\"secret123\"}")
+TOKEN=$(echo "$REG" | jq -r .token)
+TENANT=$(echo "$REG" | jq -r .tenant.id)
 [ -n "$TOKEN" ] && [ "$TOKEN" != "null" ] || { echo "❌ registro falló"; exit 1; }
 auth=(-H "Authorization: Bearer $TOKEN")
 echo "✓ registro + JWT"
@@ -93,6 +95,33 @@ curl -sf -X POST "$API/assets/$ASSET/position" "${auth[@]}" -H 'Content-Type: ap
 MDUE=$(curl -sf "$API/alerts" "${auth[@]}" | jq '[.alerts[] | select(.kind=="maintenance_due" and .resolved_at==null)] | length')
 [ "$MDUE" -ge 1 ] || { echo "❌ no se generó la alerta de mantenimiento"; exit 1; }
 echo "✓ alerta maintenance_due por horas de uso generada"
+
+# Alta de dispositivo GPS vinculado al activo + ingesta vía adapter de Traccar.
+IMEI="86012345$(date +%s | tail -c 7)"
+curl -sf -X POST "$API/devices" "${auth[@]}" -H 'Content-Type: application/json' \
+  -d "{\"kind\":\"gps\",\"identifier\":\"$IMEI\",\"assetId\":\"$ASSET\"}" >/dev/null
+DVCOUNT=$(curl -sf "$API/devices" "${auth[@]}" | jq '.devices | length')
+[ "$DVCOUNT" -ge 1 ] || { echo "❌ alta de dispositivo falló"; exit 1; }
+echo "✓ dispositivo dado de alta y vinculado al activo"
+
+# El adapter de Traccar resuelve el activo por IMEI y actualiza su posición.
+curl -sf -X POST "$API/adapters/traccar?tenantId=$TENANT&token=${INGEST_TOKEN}" \
+  -H 'Content-Type: application/json' \
+  -d "{\"device\":{\"uniqueId\":\"$IMEI\"},\"position\":{\"latitude\":-32.89,\"longitude\":-68.84,\"attributes\":{\"batteryLevel\":77}}}" >/dev/null
+BATT=$(curl -sf "$API/assets" "${auth[@]}" | jq --arg id "$ASSET" '[.assets[] | select(.id==$id)][0].last_battery')
+[ "$BATT" = "77" ] || { echo "❌ el adapter de Traccar no actualizó el activo (battery=$BATT)"; exit 1; }
+echo "✓ adapter de Traccar → ingesta por IMEI verificada"
+
+# Alta de dispositivo LoRa + ingesta vía adapter LoRaWAN (formato ChirpStack).
+DEVEUI="0102030405060708"
+curl -sf -X POST "$API/devices" "${auth[@]}" -H 'Content-Type: application/json' \
+  -d "{\"kind\":\"lora\",\"identifier\":\"$DEVEUI\",\"assetId\":\"$ASSET\"}" >/dev/null
+curl -sf -X POST "$API/adapters/lorawan?tenantId=$TENANT&token=${INGEST_TOKEN}" \
+  -H 'Content-Type: application/json' \
+  -d "{\"deviceInfo\":{\"devEui\":\"$DEVEUI\"},\"object\":{\"latitude\":-32.90,\"longitude\":-68.85,\"battery\":63}}" >/dev/null
+LBATT=$(curl -sf "$API/assets" "${auth[@]}" | jq --arg id "$ASSET" '[.assets[] | select(.id==$id)][0].last_battery')
+[ "$LBATT" = "63" ] || { echo "❌ el adapter LoRaWAN no actualizó el activo (battery=$LBATT)"; exit 1; }
+echo "✓ adapter LoRaWAN (ChirpStack) → ingesta por DevEUI verificada"
 
 # Verificar aislamiento RLS: un tenant nuevo no ve el activo anterior.
 TOKEN2=$(curl -sf -X POST "$API/auth/register" -H 'Content-Type: application/json' \

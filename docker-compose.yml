@@ -106,11 +106,46 @@ services:
       - "${WEB_PORT:-8090}:8080"
     networks: [trazza]
 
+  traccar:
+    # Servidor de tracking GPS: recibe los protocolos binarios de los rastreadores
+    # (Teltonika/Queclink/Concox...) y reenvía cada posición a la API POR LA RED
+    # INTERNA de Docker (http://api:8080/adapters/traccar). Toda la config va por
+    # variables de entorno (CONFIG_USE_ENVIRONMENT_VARIABLES) — no monta archivos.
+    image: ${TRACCAR_IMAGE:-traccar/traccar:latest}
+    <<: *restart
+    depends_on:
+      - api
+    environment:
+      CONFIG_USE_ENVIRONMENT_VARIABLES: "true"
+      # Base embebida H2 persistida en el volumen (suficiente para una instancia).
+      DATABASE_DRIVER: org.h2.Driver
+      DATABASE_URL: jdbc:h2:./data/database
+      DATABASE_USER: sa
+      DATABASE_PASSWORD: ""
+      # Reenvío de posiciones a Trazza (JSON) por la red interna del stack.
+      # tenantId identifica al cliente; el token viaja en el header (no en la URL).
+      FORWARD_ENABLE: "true"
+      FORWARD_TYPE: json
+      FORWARD_URL: http://api:8080/adapters/traccar?tenantId=${TRACCAR_TENANT_ID}
+      FORWARD_HEADER: "X-Ingest-Token: ${INGEST_TOKEN}"
+    volumes:
+      - traccar-data:/opt/traccar/data
+    ports:
+      # UI de administración de Traccar: dar de alta cada rastreador por IMEI.
+      # Proxealo por NPM (traccar.tudominio.com -> 8082) si querés TLS.
+      - "${TRACCAR_PORT:-8082}:8082"
+      # Puertos de protocolo: los rastreadores del campo se conectan acá por
+      # internet. Abrí el rango en el firewall (podés acotarlo a los de tus equipos).
+      - "5000-5150:5000-5150"
+      - "5000-5150:5000-5150/udp"
+    networks: [trazza]
+
 volumes:
   db-data:
   redis-data:
   mqtt-data:
   minio-data:
+  traccar-data:
 
 networks:
   trazza:

@@ -91,7 +91,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [geofences, setGeofences] = useState<MapGeofence[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [plans, setPlans] = useState<any[]>([]);
+  const [devices, setDevices] = useState<any[]>([]);
   const [error, setError] = useState('');
+
+  // Form de alta de dispositivo.
+  const [dvKind, setDvKind] = useState<'gps' | 'lora' | 'rfid'>('gps');
+  const [dvIdent, setDvIdent] = useState('');
+  const [dvAsset, setDvAsset] = useState('');
 
   // Form de plan de mantenimiento.
   const [mpAsset, setMpAsset] = useState('');
@@ -105,15 +111,19 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [gfCenter, setGfCenter] = useState<{ lng: number; lat: number } | null>(null);
 
   const tenant = JSON.parse(localStorage.getItem('trazza_tenant') || '{}');
+  // URL pública de la API (para configurar los trackers): dominio actual + /api.
+  const apiBase = (import.meta.env.VITE_API_URL as string | undefined)?.startsWith('http')
+    ? (import.meta.env.VITE_API_URL as string)
+    : `${window.location.origin}/api`;
 
   const load = async () => {
     try {
-      const [s, a, g, al, mp] = await Promise.all([
+      const [s, a, g, al, mp, dv] = await Promise.all([
         api('/summary'), api('/assets'), api('/geofences'), api('/alerts'),
-        api('/maintenance/plans'),
+        api('/maintenance/plans'), api('/devices'),
       ]);
       setSummary(s); setAssets(a.assets); setGeofences(g.geofences);
-      setAlerts(al.alerts); setPlans(mp.plans);
+      setAlerts(al.alerts); setPlans(mp.plans); setDevices(dv.devices);
     } catch (err: any) { setError(err.message); }
   };
   useEffect(() => { load(); }, []);
@@ -156,6 +166,27 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const completePlan = async (id: string) => {
     await api(`/maintenance/plans/${id}/complete`, { method: 'POST', body: JSON.stringify({}) });
+    load();
+  };
+
+  const createDevice = async () => {
+    if (!dvIdent.trim()) return;
+    try {
+      await api('/devices', { method: 'POST', body: JSON.stringify({
+        kind: dvKind, identifier: dvIdent.trim(), assetId: dvAsset || null,
+      })});
+      setDvIdent(''); setDvAsset('');
+      load();
+    } catch (err: any) { setError(err.message); }
+  };
+
+  const bindDevice = async (id: string, assetId: string) => {
+    await api(`/devices/${id}`, { method: 'PATCH', body: JSON.stringify({ assetId: assetId || null }) });
+    load();
+  };
+
+  const deleteDevice = async (id: string) => {
+    await api(`/devices/${id}`, { method: 'DELETE' });
     load();
   };
 
@@ -302,6 +333,91 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   </div>
                 );
               })}
+            </div>
+          )}
+        </div>
+
+        {/* Dispositivos */}
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold text-white">Dispositivos</h2>
+          <p className="mt-1 text-sm text-graphite-400">
+            Registrá el rastreador físico (IMEI para GPS/4G, DevEUI para LoRaWAN, EPC para RFID) y
+            vinculalo a un activo. Luego apuntá el tracker a la ingesta de Trazza.
+          </p>
+
+          {/* Alta */}
+          <div className="mt-3 flex flex-wrap items-end gap-3 rounded-xl border border-graphite-700 bg-graphite-800/40 p-4">
+            <label className="text-sm text-graphite-300">
+              <span className="mb-1 block">Tecnología</span>
+              <select value={dvKind} onChange={(e) => setDvKind(e.target.value as any)}
+                className="rounded-lg border border-graphite-700 bg-graphite-900 px-3 py-2 text-sm text-white outline-none focus:border-amber-500">
+                <option value="gps">GPS / 4G</option>
+                <option value="lora">LoRaWAN</option>
+                <option value="rfid">RFID</option>
+              </select>
+            </label>
+            <label className="text-sm text-graphite-300">
+              <span className="mb-1 block">Identificador (IMEI/DevEUI/EPC)</span>
+              <input value={dvIdent} onChange={(e) => setDvIdent(e.target.value)} placeholder="860123456789012"
+                className="w-56 rounded-lg border border-graphite-700 bg-graphite-900 px-3 py-2 text-sm text-white outline-none focus:border-amber-500" />
+            </label>
+            <label className="text-sm text-graphite-300">
+              <span className="mb-1 block">Activo (opcional)</span>
+              <select value={dvAsset} onChange={(e) => setDvAsset(e.target.value)}
+                className="rounded-lg border border-graphite-700 bg-graphite-900 px-3 py-2 text-sm text-white outline-none focus:border-amber-500">
+                <option value="">Sin vincular…</option>
+                {assets.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </label>
+            <button onClick={createDevice} disabled={!dvIdent.trim()} className="btn-primary py-2 text-sm disabled:opacity-40">
+              Registrar dispositivo
+            </button>
+          </div>
+
+          {/* Endpoint de ingesta para este tenant */}
+          <div className="mt-3 rounded-xl border border-graphite-700 bg-graphite-900/60 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-graphite-400">Endpoint de ingesta (este cliente)</p>
+            <code className="mt-1 block break-all text-xs text-amber-300">
+              {`${apiBase}/telemetry/ingest`}
+            </code>
+            <p className="mt-1 text-xs text-graphite-500">
+              tenantId: <span className="text-graphite-300">{tenant.id ?? '—'}</span> · header
+              <span className="text-graphite-300"> X-Ingest-Token</span>. Para GPS, Traccar ya
+              corre en el stack: poné este tenantId en <span className="text-graphite-300">TRACCAR_TENANT_ID</span> y
+              dá de alta el IMEI en la UI de Traccar.
+            </p>
+          </div>
+
+          {devices.length > 0 && (
+            <div className="mt-4 overflow-hidden rounded-xl border border-graphite-700">
+              <table className="w-full text-sm">
+                <thead className="bg-graphite-800 text-left text-graphite-300">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Tipo</th>
+                    <th className="px-4 py-3 font-medium">Identificador</th>
+                    <th className="px-4 py-3 font-medium">Activo vinculado</th>
+                    <th className="px-4 py-3 font-medium"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-graphite-800">
+                  {devices.map((d) => (
+                    <tr key={d.id} className="text-graphite-200">
+                      <td className="px-4 py-3"><span className="rounded bg-graphite-700 px-2 py-0.5 text-xs font-bold uppercase text-amber-400">{d.kind}</span></td>
+                      <td className="px-4 py-3 font-mono text-xs">{d.identifier}</td>
+                      <td className="px-4 py-3">
+                        <select value={d.asset_id ?? ''} onChange={(e) => bindDevice(d.id, e.target.value)}
+                          className="rounded-lg border border-graphite-700 bg-graphite-900 px-2 py-1 text-xs text-white outline-none focus:border-amber-500">
+                          <option value="">Sin vincular</option>
+                          {assets.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button onClick={() => deleteDevice(d.id)} className="text-xs text-graphite-400 hover:text-red-400">Eliminar</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
