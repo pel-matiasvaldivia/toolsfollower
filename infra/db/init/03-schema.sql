@@ -81,9 +81,21 @@ CREATE TABLE devices (
   asset_id    uuid REFERENCES assets(id) ON DELETE SET NULL,
   kind        text NOT NULL,       -- gps | lora | rfid
   identifier  text NOT NULL,       -- IMEI / devEUI / EPC
+  key_prefix  text,                -- prefijo visible de la credencial (no secreto)
   created_at  timestamptz NOT NULL DEFAULT now(),
   UNIQUE (tenant_id, identifier)
 );
+
+-- Credenciales por dispositivo (GLOBAL, sin RLS): permite resolver el device y
+-- su tenant a partir del hash de la clave, sin conocer el tenant de antemano.
+-- Igual que las tablas de auth, se controla por código (no lleva tenant_isolation).
+CREATE TABLE device_keys (
+  key_hash    text PRIMARY KEY,             -- sha256 de la clave
+  device_id   uuid NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+  tenant_id   uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ON device_keys (device_id);
 
 CREATE TABLE geofences (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),

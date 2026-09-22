@@ -110,18 +110,29 @@ cd apps/web && npm install && npm run dev      # :5173 (proxya /api -> :8091)
 | GET | `/alerts` | Alertas (geocerca, mantenimiento, batería) |
 | GET/POST | `/maintenance/plans` | Planes de mantenimiento (por calendario u horas de uso) |
 | POST | `/maintenance/plans/:id/complete` | Registra el service y reprograma el vencimiento |
-| GET/POST | `/devices` | Alta y listado de dispositivos (IMEI/DevEUI/EPC) |
+| GET/POST | `/devices` | Alta y listado de dispositivos (el alta devuelve la credencial una vez) |
 | PATCH/DELETE | `/devices/:id` | Vincular/desvincular a un activo o dar de baja |
-| POST | `/telemetry/ingest` | Ingesta de dispositivos (header `X-Ingest-Token`) |
+| POST | `/devices/:id/rotate-key` | Rota la credencial del dispositivo (devuelve la nueva una vez) |
+| POST | `/telemetry/ingest` | Ingesta (credencial `X-Device-Key`, o `X-Ingest-Token` + tenantId) |
 | POST | `/adapters/traccar` | Recibe el *position forwarding* JSON de Traccar |
 | POST | `/adapters/lorawan` | Recibe uplinks de ChirpStack v4 / The Things Stack v3 |
 
-Ejemplo de ingesta:
-```bash
-curl -X POST http://api.tudominio.com/telemetry/ingest \
-  -H "X-Ingest-Token: $INGEST_TOKEN" -H "Content-Type: application/json" \
-  -d '{"tenantId":"<uuid>","deviceIdentifier":"IMEI123","lat":-32.89,"lng":-68.84,"battery":92}'
-```
+**Autenticación de la ingesta** — dos modos:
+
+1. **Credencial por dispositivo** (recomendado para equipos que hablan HTTP directo):
+   cada dispositivo recibe una clave `trz_…` al darlo de alta (se muestra una sola vez;
+   la base guarda sólo su hash SHA-256). Resuelve tenant + activo por sí sola:
+   ```bash
+   curl -X POST https://api.tudominio.com/telemetry/ingest \
+     -H "X-Device-Key: trz_xxxxxxxx" -H "Content-Type: application/json" \
+     -d '{"lat":-32.89,"lng":-68.84,"battery":92}'
+   ```
+2. **Token compartido** (gateways de confianza: Traccar, LNS, bridge MQTT):
+   ```bash
+   curl -X POST https://api.tudominio.com/telemetry/ingest \
+     -H "X-Ingest-Token: $INGEST_TOKEN" -H "Content-Type: application/json" \
+     -d '{"tenantId":"<uuid>","deviceIdentifier":"IMEI123","lat":-32.89,"lng":-68.84,"battery":92}'
+   ```
 
 ## Vincular dispositivos físicos
 
@@ -189,4 +200,4 @@ curl -X POST http://api.tudominio.com/telemetry/ingest \
 MVP actual: auth multitenant, activos, custodia (esquema), ingesta de telemetría, KPIs y
 landing, mapa en vivo (MapLibre), geocercas + motor de alertas, mantenimiento por horas
 de uso, alta de dispositivos, adapters de Traccar (GPS/4G) y LoRaWAN (ChirpStack/TTS),
-y bridge MQTT→ingesta. Siguiente: credenciales por dispositivo y fotos a MinIO.
+bridge MQTT→ingesta y credenciales por dispositivo. Siguiente: fotos de activos a MinIO.

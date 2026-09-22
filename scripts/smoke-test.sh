@@ -96,13 +96,28 @@ MDUE=$(curl -sf "$API/alerts" "${auth[@]}" | jq '[.alerts[] | select(.kind=="mai
 [ "$MDUE" -ge 1 ] || { echo "❌ no se generó la alerta de mantenimiento"; exit 1; }
 echo "✓ alerta maintenance_due por horas de uso generada"
 
-# Alta de dispositivo GPS vinculado al activo + ingesta vía adapter de Traccar.
+# Alta de dispositivo GPS vinculado al activo (devuelve la credencial una vez).
 IMEI="86012345$(date +%s | tail -c 7)"
-curl -sf -X POST "$API/devices" "${auth[@]}" -H 'Content-Type: application/json' \
-  -d "{\"kind\":\"gps\",\"identifier\":\"$IMEI\",\"assetId\":\"$ASSET\"}" >/dev/null
+DVRESP=$(curl -sf -X POST "$API/devices" "${auth[@]}" -H 'Content-Type: application/json' \
+  -d "{\"kind\":\"gps\",\"identifier\":\"$IMEI\",\"assetId\":\"$ASSET\"}")
+DEVKEY=$(echo "$DVRESP" | jq -r .key)
+[ -n "$DEVKEY" ] && [ "$DEVKEY" != "null" ] || { echo "❌ el alta no devolvió credencial"; exit 1; }
 DVCOUNT=$(curl -sf "$API/devices" "${auth[@]}" | jq '.devices | length')
 [ "$DVCOUNT" -ge 1 ] || { echo "❌ alta de dispositivo falló"; exit 1; }
-echo "✓ dispositivo dado de alta y vinculado al activo"
+echo "✓ dispositivo dado de alta (con credencial) y vinculado al activo"
+
+# Ingesta autenticada por credencial de dispositivo (sin tenantId en el body).
+curl -sf -X POST "$API/telemetry/ingest" -H "X-Device-Key: $DEVKEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"lat":-32.895,"lng":-68.842,"battery":58}' >/dev/null
+KBATT=$(curl -sf "$API/assets" "${auth[@]}" | jq --arg id "$ASSET" '[.assets[] | select(.id==$id)][0].last_battery')
+[ "$KBATT" = "58" ] || { echo "❌ la ingesta por credencial no actualizó el activo (battery=$KBATT)"; exit 1; }
+echo "✓ ingesta por credencial de dispositivo (X-Device-Key) verificada"
+# Una credencial inválida debe ser rechazada.
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/telemetry/ingest" \
+  -H "X-Device-Key: trz_invalida" -H 'Content-Type: application/json' -d '{"lat":-32,"lng":-68}')
+[ "$CODE" = "401" ] || { echo "❌ credencial inválida no fue rechazada (HTTP $CODE)"; exit 1; }
+echo "✓ credencial inválida rechazada (401)"
 
 # El adapter de Traccar resuelve el activo por IMEI y actualiza su posición.
 curl -sf -X POST "$API/adapters/traccar?tenantId=$TENANT&token=${INGEST_TOKEN}" \
