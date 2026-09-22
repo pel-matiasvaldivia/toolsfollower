@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { withTenant } from '../db.js';
 import { config } from '../config.js';
 import { evaluateGeofence } from '../services/geofence.js';
+import { evaluateMaintenance } from '../services/maintenance.js';
 
 /**
  * Ingesta de telemetría de dispositivos (webhook HTTP; el broker MQTT puede
@@ -56,7 +57,16 @@ export async function registerTelemetryRoutes(app: FastifyInstance) {
         );
       }
 
+      // Horas de motor (pueden llegar sin nueva posición).
+      if (assetId && b.engineHours != null) {
+        await c.query(
+          `UPDATE assets SET last_engine_hours = $2, last_seen_at = now() WHERE id = $1`,
+          [assetId, Number(b.engineHours)],
+        );
+      }
+
       await evaluateGeofence(c, assetId, lng, lat);
+      await evaluateMaintenance(c, assetId);
       return reply.code(202).send({ accepted: true });
     });
   });

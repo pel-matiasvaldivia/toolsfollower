@@ -85,6 +85,15 @@ OPEN=$(curl -sf "$API/alerts" "${auth[@]}" | jq '[.alerts[] | select(.kind=="geo
 [ "$OPEN" -ge 1 ] || { echo "❌ no se generó la alerta de geocerca"; exit 1; }
 echo "✓ alerta geofence_exit generada"
 
+# Mantenimiento por horas: plan cada 100 h, luego reportar 500 h -> vencido.
+curl -sf -X POST "$API/maintenance/plans" "${auth[@]}" -H 'Content-Type: application/json' \
+  -d "{\"assetId\":\"$ASSET\",\"strategy\":\"hours\",\"intervalHours\":100}" >/dev/null
+curl -sf -X POST "$API/assets/$ASSET/position" "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"lat":-33.2,"lng":-69.2,"engineHours":500}' >/dev/null
+MDUE=$(curl -sf "$API/alerts" "${auth[@]}" | jq '[.alerts[] | select(.kind=="maintenance_due" and .resolved_at==null)] | length')
+[ "$MDUE" -ge 1 ] || { echo "❌ no se generó la alerta de mantenimiento"; exit 1; }
+echo "✓ alerta maintenance_due por horas de uso generada"
+
 # Verificar aislamiento RLS: un tenant nuevo no ve el activo anterior.
 TOKEN2=$(curl -sf -X POST "$API/auth/register" -H 'Content-Type: application/json' \
   -d "{\"company\":\"Otra SA\",\"name\":\"B\",\"email\":\"smoke2+$(date +%s)@trazza.test\",\"password\":\"secret123\"}" | jq -r .token)

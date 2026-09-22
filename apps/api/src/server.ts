@@ -6,6 +6,7 @@ import { registerAuthRoutes } from './routes/auth.js';
 import { registerAssetRoutes } from './routes/assets.js';
 import { registerTelemetryRoutes } from './routes/telemetry.js';
 import { registerGeofenceRoutes } from './routes/geofences.js';
+import { registerMaintenanceRoutes } from './routes/maintenance.js';
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {
@@ -40,6 +41,7 @@ await registerAuthRoutes(app);
 await registerAssetRoutes(app);
 await registerTelemetryRoutes(app);
 await registerGeofenceRoutes(app);
+await registerMaintenanceRoutes(app);
 
 try {
   await app.listen({ port: config.port, host: config.host });

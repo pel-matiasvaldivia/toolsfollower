@@ -90,7 +90,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [assets, setAssets] = useState<MapAsset[]>([]);
   const [geofences, setGeofences] = useState<MapGeofence[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
+  const [plans, setPlans] = useState<any[]>([]);
   const [error, setError] = useState('');
+
+  // Form de plan de mantenimiento.
+  const [mpAsset, setMpAsset] = useState('');
+  const [mpStrategy, setMpStrategy] = useState<'calendar' | 'hours'>('hours');
+  const [mpInterval, setMpInterval] = useState(250);
 
   // Estado de creación de geocerca.
   const [picking, setPicking] = useState(false);
@@ -102,10 +108,12 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const load = async () => {
     try {
-      const [s, a, g, al] = await Promise.all([
+      const [s, a, g, al, mp] = await Promise.all([
         api('/summary'), api('/assets'), api('/geofences'), api('/alerts'),
+        api('/maintenance/plans'),
       ]);
-      setSummary(s); setAssets(a.assets); setGeofences(g.geofences); setAlerts(al.alerts);
+      setSummary(s); setAssets(a.assets); setGeofences(g.geofences);
+      setAlerts(al.alerts); setPlans(mp.plans);
     } catch (err: any) { setError(err.message); }
   };
   useEffect(() => { load(); }, []);
@@ -129,8 +137,25 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         lng: MENDOZA.lng + (Math.random() - 0.5) * 0.12,
         lat: MENDOZA.lat + (Math.random() - 0.5) * 0.12,
         battery: Math.floor(Math.random() * 60 + 40),
+        // Suma horas de motor (para disparar mantenimiento por uso).
+        engineHours: Math.floor(Math.random() * 300 + 50),
       }),
     })));
+    load();
+  };
+
+  const createPlan = async () => {
+    if (!mpAsset) return;
+    const body: any = { assetId: mpAsset, strategy: mpStrategy };
+    if (mpStrategy === 'hours') body.intervalHours = mpInterval;
+    else body.intervalDays = mpInterval;
+    await api('/maintenance/plans', { method: 'POST', body: JSON.stringify(body) });
+    setMpAsset('');
+    load();
+  };
+
+  const completePlan = async (id: string) => {
+    await api(`/maintenance/plans/${id}/complete`, { method: 'POST', body: JSON.stringify({}) });
     load();
   };
 
@@ -222,6 +247,64 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             </div>
           </div>
         )}
+
+        {/* Mantenimiento */}
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold text-white">Mantenimiento</h2>
+          <div className="mt-3 flex flex-wrap items-end gap-3 rounded-xl border border-graphite-700 bg-graphite-800/40 p-4">
+            <label className="text-sm text-graphite-300">
+              <span className="mb-1 block">Activo</span>
+              <select value={mpAsset} onChange={(e) => setMpAsset(e.target.value)}
+                className="rounded-lg border border-graphite-700 bg-graphite-900 px-3 py-2 text-sm text-white outline-none focus:border-amber-500">
+                <option value="">Elegí…</option>
+                {assets.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </label>
+            <label className="text-sm text-graphite-300">
+              <span className="mb-1 block">Estrategia</span>
+              <select value={mpStrategy} onChange={(e) => setMpStrategy(e.target.value as any)}
+                className="rounded-lg border border-graphite-700 bg-graphite-900 px-3 py-2 text-sm text-white outline-none focus:border-amber-500">
+                <option value="hours">Por horas de uso</option>
+                <option value="calendar">Por calendario</option>
+              </select>
+            </label>
+            <label className="text-sm text-graphite-300">
+              <span className="mb-1 block">{mpStrategy === 'hours' ? 'Cada (horas)' : 'Cada (días)'}</span>
+              <input type="number" min={1} value={mpInterval} onChange={(e) => setMpInterval(Number(e.target.value))}
+                className="w-28 rounded-lg border border-graphite-700 bg-graphite-900 px-3 py-2 text-sm text-white outline-none focus:border-amber-500" />
+            </label>
+            <button onClick={createPlan} disabled={!mpAsset} className="btn-primary py-2 text-sm disabled:opacity-40">Crear plan</button>
+          </div>
+
+          {plans.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {plans.map((p) => {
+                const badge = p.status === 'overdue'
+                  ? 'border-red-500/50 bg-red-500/10 text-red-300'
+                  : p.status === 'due_soon'
+                  ? 'border-amber-500/50 bg-amber-500/10 text-amber-300'
+                  : 'border-graphite-700 bg-graphite-800/40 text-graphite-300';
+                const label = p.status === 'overdue' ? 'Vencido' : p.status === 'due_soon' ? 'Vence pronto' : 'Al día';
+                return (
+                  <div key={p.id} className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${badge}`}>
+                    <div>
+                      <strong className="text-white">{p.asset_name}</strong>
+                      <span className="ml-2 opacity-80">
+                        {p.strategy === 'hours'
+                          ? `cada ${p.interval_hours} h · próx. ${p.next_due_hours} h (actual ${p.last_engine_hours ?? 0} h)`
+                          : `cada ${p.interval_days} días · próx. ${p.next_due_at ? new Date(p.next_due_at).toLocaleDateString() : '—'}`}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="rounded px-2 py-0.5 text-xs font-bold uppercase">{label}</span>
+                      <button onClick={() => completePlan(p.id)} className="btn-ghost py-1.5 text-xs">Registrar service</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* Activos */}
         <div className="mt-8 flex items-center justify-between">

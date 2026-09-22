@@ -90,6 +90,11 @@ cd apps/web && npm install && npm run dev      # :5173 (proxya /api -> :8091)
 | GET | `/assets` | Lista activos del tenant |
 | POST | `/assets` | Crea activo |
 | GET | `/summary` | KPIs para el dashboard |
+| POST | `/assets/:id/position` | Actualiza posición/horas de un activo (evalúa geocercas y mantenimiento) |
+| GET/POST | `/geofences` | Geocercas (círculo o polígono), GeoJSON |
+| GET | `/alerts` | Alertas (geocerca, mantenimiento, batería) |
+| GET/POST | `/maintenance/plans` | Planes de mantenimiento (por calendario u horas de uso) |
+| POST | `/maintenance/plans/:id/complete` | Registra el service y reprograma el vencimiento |
 | POST | `/telemetry/ingest` | Ingesta de dispositivos (header `X-Ingest-Token`) |
 
 Ejemplo de ingesta:
@@ -98,6 +103,17 @@ curl -X POST http://api.tudominio.com/telemetry/ingest \
   -H "X-Ingest-Token: $INGEST_TOKEN" -H "Content-Type: application/json" \
   -d '{"tenantId":"<uuid>","deviceIdentifier":"IMEI123","lat":-32.89,"lng":-68.84,"battery":92}'
 ```
+
+## Testing
+
+- **Unit (API):** `cd apps/api && npm test` (node --test).
+- **Smoke test del stack (requiere Docker + jq):** `./scripts/smoke-test.sh` levanta
+  el stack, valida el init de la base (PostGIS, TimescaleDB, hypertable, RLS) y corre
+  el flujo registro → activo → geocerca → alerta → mantenimiento, más el aislamiento
+  multitenant. `KEEP_UP=1 ./scripts/smoke-test.sh` deja el stack corriendo.
+- **CI:** el job `verify` (typecheck + tests + build) corre como gate antes de publicar
+  imágenes en GHCR.
+- **Sesiones web:** `.claude/hooks/session-start.sh` instala dependencias al iniciar.
 
 ## Escalado horizontal
 

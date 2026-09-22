@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { withTenant } from '../db.js';
 import { evaluateGeofence } from '../services/geofence.js';
+import { evaluateMaintenance } from '../services/maintenance.js';
 
 export async function registerAssetRoutes(app: FastifyInstance) {
   // Listar activos del tenant (RLS filtra automáticamente).
@@ -47,19 +48,21 @@ export async function registerAssetRoutes(app: FastifyInstance) {
         `UPDATE assets
             SET last_geom = ST_SetSRID(ST_MakePoint($2, $3), 4326),
                 last_battery = COALESCE($4, last_battery),
+                last_engine_hours = COALESCE($5, last_engine_hours),
                 last_seen_at = now()
           WHERE id = $1
           RETURNING id`,
-        [id, lng, lat, b.battery ?? null],
+        [id, lng, lat, b.battery ?? null, b.engineHours ?? null],
       );
       if (u.rowCount === 0) return reply.code(404).send({ error: 'activo no encontrado' });
 
       await c.query(
-        `INSERT INTO telemetry (tenant_id, asset_id, geom, battery)
-         VALUES (current_tenant(), $1, ST_SetSRID(ST_MakePoint($2, $3), 4326), $4)`,
-        [id, lng, lat, b.battery ?? null],
+        `INSERT INTO telemetry (tenant_id, asset_id, geom, battery, engine_hours)
+         VALUES (current_tenant(), $1, ST_SetSRID(ST_MakePoint($2, $3), 4326), $4, $5)`,
+        [id, lng, lat, b.battery ?? null, b.engineHours ?? null],
       );
       await evaluateGeofence(c, id, lng, lat);
+      await evaluateMaintenance(c, id);
       return reply.code(202).send({ accepted: true });
     });
   });

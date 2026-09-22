@@ -56,9 +56,10 @@ CREATE TABLE assets (
   value_usd     numeric(12,2),
   status        text NOT NULL DEFAULT 'active',
   photo_url     text,
-  last_geom     geometry(Point, 4326),
-  last_battery  int,
-  last_seen_at  timestamptz,
+  last_geom          geometry(Point, 4326),
+  last_battery       int,
+  last_engine_hours  numeric(10,1),
+  last_seen_at       timestamptz,
   created_at    timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX ON assets (tenant_id);
