@@ -56,7 +56,8 @@ services:
     networks: [trazza]
 
   minio:
-    image: minio/minio:latest
+    # MinIO retiró sus imágenes de Docker Hub (oct. 2025); la oficial vive en quay.io.
+    image: quay.io/minio/minio:latest
     <<: *restart
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
@@ -67,11 +68,8 @@ services:
     ports:
       - "${MINIO_PORT:-9000}:9000"
       - "${MINIO_CONSOLE_PORT:-9090}:9001"
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 20s
-      timeout: 5s
-      retries: 5
+    # Sin healthcheck: nada depende de MinIO y evitamos suponer qué binarios
+    # (curl/mc) trae la imagen. El endpoint /minio/health/live queda para NPM.
     networks: [trazza]
 
   api:
