@@ -95,7 +95,10 @@ cd apps/web && npm install && npm run dev      # :5173 (proxya /api -> :8091)
 | GET | `/alerts` | Alertas (geocerca, mantenimiento, batería) |
 | GET/POST | `/maintenance/plans` | Planes de mantenimiento (por calendario u horas de uso) |
 | POST | `/maintenance/plans/:id/complete` | Registra el service y reprograma el vencimiento |
+| GET/POST | `/devices` | Alta y listado de dispositivos (IMEI/DevEUI/EPC) |
+| PATCH/DELETE | `/devices/:id` | Vincular/desvincular a un activo o dar de baja |
 | POST | `/telemetry/ingest` | Ingesta de dispositivos (header `X-Ingest-Token`) |
+| POST | `/adapters/traccar` | Recibe el *position forwarding* JSON de Traccar |
 
 Ejemplo de ingesta:
 ```bash
@@ -103,6 +106,33 @@ curl -X POST http://api.tudominio.com/telemetry/ingest \
   -H "X-Ingest-Token: $INGEST_TOKEN" -H "Content-Type: application/json" \
   -d '{"tenantId":"<uuid>","deviceIdentifier":"IMEI123","lat":-32.89,"lng":-68.84,"battery":92}'
 ```
+
+## Vincular dispositivos físicos
+
+1. **Dar de alta el dispositivo** en el panel (sección *Dispositivos*) o por API:
+   ```bash
+   curl -X POST https://trazza.tudominio.com/api/devices \
+     -H "Authorization: Bearer $JWT" -H "Content-Type: application/json" \
+     -d '{"kind":"gps","identifier":"860123456789012","assetId":"<uuid-activo>"}'
+   ```
+   El `identifier` es el **IMEI** (GPS/4G), **DevEUI** (LoRaWAN) o **EPC** (RFID).
+
+2. **Configurar el envío de telemetría** según la tecnología:
+   - **GPS/4G (Teltonika, Queclink, Concox…):** hablan protocolos binarios, así que
+     se pone **[Traccar](https://www.traccar.org/)** delante. En Traccar, *Settings →
+     Server → Forwarding* (modo JSON), apuntá a:
+     ```
+     https://trazza.tudominio.com/api/adapters/traccar?tenantId=<uuid>&token=<INGEST_TOKEN>
+     ```
+     El `device.uniqueId` (IMEI) resuelve el activo; `attributes.hours` (ms) se
+     convierte a horas de motor y alimenta el mantenimiento por uso.
+   - **LoRaWAN:** en el LNS (ChirpStack / The Things Stack) creá una integración
+     HTTP que haga `POST` a `/telemetry/ingest` con `deviceIdentifier` = DevEUI y el
+     payload decodificado a `lat`/`lng`/`battery`.
+   - **RFID:** el middleware del lector hace `POST` a `/telemetry/ingest` con el EPC
+     leído en portería (presencia).
+   - **Cualquiera con MQTT:** publican al broker Mosquitto (`:1883`); un bridge
+     MQTT→ingest los normaliza (pendiente en el roadmap).
 
 ## Testing
 
@@ -125,5 +155,6 @@ curl -X POST http://api.tudominio.com/telemetry/ingest \
 ## Roadmap
 
 MVP actual: auth multitenant, activos, custodia (esquema), ingesta de telemetría, KPIs y
-landing. Siguiente: mapa en vivo (MapLibre), geocercas + motor de alertas (Redis/BullMQ),
-mantenimiento por horas de uso, subida de fotos a MinIO y adapters de dispositivos.
+landing, mapa en vivo (MapLibre), geocercas + motor de alertas, mantenimiento por horas
+de uso, alta de dispositivos y adapter de Traccar (GPS/4G). Siguiente: webhook LoRaWAN
+(ChirpStack/TTS), bridge MQTT→ingest, credenciales por dispositivo y fotos a MinIO.
