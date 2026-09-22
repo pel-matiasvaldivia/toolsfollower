@@ -33,7 +33,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "🚀 Levantando stack (build local)…"
-$COMPOSE up -d --build db redis mqtt api web
+$COMPOSE up -d --build db redis mqtt api web bridge
 
 echo "⏳ Esperando a la API…"
 ok=""
@@ -122,6 +122,18 @@ curl -sf -X POST "$API/adapters/lorawan?tenantId=$TENANT&token=${INGEST_TOKEN}" 
 LBATT=$(curl -sf "$API/assets" "${auth[@]}" | jq --arg id "$ASSET" '[.assets[] | select(.id==$id)][0].last_battery')
 [ "$LBATT" = "63" ] || { echo "❌ el adapter LoRaWAN no actualizó el activo (battery=$LBATT)"; exit 1; }
 echo "✓ adapter LoRaWAN (ChirpStack) → ingesta por DevEUI verificada"
+
+# Bridge MQTT: publicar en trazza/<tenant>/<imei> y verificar que el activo se actualiza.
+$COMPOSE exec -T mqtt mosquitto_pub -h localhost -t "trazza/$TENANT/$IMEI" \
+  -m '{"lat":-32.88,"lng":-68.83,"battery":42}'
+MBATT=""
+for _ in $(seq 1 15); do
+  MBATT=$(curl -sf "$API/assets" "${auth[@]}" | jq --arg id "$ASSET" '[.assets[] | select(.id==$id)][0].last_battery')
+  [ "$MBATT" = "42" ] && break
+  sleep 1
+done
+[ "$MBATT" = "42" ] || { echo "❌ el bridge MQTT no actualizó el activo (battery=$MBATT)"; $COMPOSE logs bridge | tail -20; exit 1; }
+echo "✓ bridge MQTT → ingesta por topic verificada"
 
 # Verificar aislamiento RLS: un tenant nuevo no ve el activo anterior.
 TOKEN2=$(curl -sf -X POST "$API/auth/register" -H 'Content-Type: application/json' \

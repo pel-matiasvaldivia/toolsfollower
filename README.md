@@ -16,6 +16,7 @@ api ── PostgreSQL (TimescaleDB + PostGIS, RLS por tenant)
     ── Redis (cache/colas)
     ── MinIO (fotos/documentos)
 mqtt (Mosquitto) ── ingesta de dispositivos GPS/LoRa
+bridge ── consume el broker MQTT y normaliza cada mensaje a la ingesta
 traccar ── recibe los protocolos de los rastreadores y reenvía
            posiciones a api:8080/adapters/traccar (red interna)
 ```
@@ -156,8 +157,14 @@ curl -X POST http://api.tudominio.com/telemetry/ingest \
      `202` para que el LNS no reintente.
    - **RFID:** el middleware del lector hace `POST` a `/telemetry/ingest` con el EPC
      leído en portería (presencia).
-   - **Cualquiera con MQTT:** publican al broker Mosquitto (`:1883`); un bridge
-     MQTT→ingest los normaliza (pendiente en el roadmap).
+   - **Cualquiera con MQTT:** publican al broker Mosquitto (`:1883`) y el servicio
+     `bridge` los ingesta. Convención de topic:
+     ```
+     trazza/<tenantId>/<deviceIdentifier>   payload JSON: {"lat":-32.9,"lng":-68.8,"battery":80}
+     ```
+     El `tenantId`/`deviceIdentifier` también pueden ir dentro del payload (topic
+     genérico `trazza/ingest`). El `bridge` corre en **una sola instancia** (no
+     escalar). Asegurá el broker con usuarios/ACLs en producción (`mosquitto.conf`).
 
 ## Testing
 
@@ -181,5 +188,5 @@ curl -X POST http://api.tudominio.com/telemetry/ingest \
 
 MVP actual: auth multitenant, activos, custodia (esquema), ingesta de telemetría, KPIs y
 landing, mapa en vivo (MapLibre), geocercas + motor de alertas, mantenimiento por horas
-de uso, alta de dispositivos y adapters de Traccar (GPS/4G) y LoRaWAN (ChirpStack/TTS).
-Siguiente: bridge MQTT→ingest, credenciales por dispositivo y fotos a MinIO.
+de uso, alta de dispositivos, adapters de Traccar (GPS/4G) y LoRaWAN (ChirpStack/TTS),
+y bridge MQTT→ingesta. Siguiente: credenciales por dispositivo y fotos a MinIO.

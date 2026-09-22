@@ -106,6 +106,25 @@ services:
       - "${WEB_PORT:-8090}:8080"
     networks: [trazza]
 
+  bridge:
+    # Bridge MQTT -> ingesta. Misma imagen que la API, otro comando. Consume el
+    # broker Mosquitto y normaliza cada mensaje con ingestPoint (red interna).
+    # UNA sola instancia: no escalar (evita procesar cada mensaje N veces).
+    image: ${IMAGE_REPO}/trazza-api:${IMAGE_TAG:-latest}
+    <<: *restart
+    command: ["node", "dist/bridge.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      MQTT_URL: mqtt://mqtt:1883
+      MQTT_TOPIC_PREFIX: ${MQTT_TOPIC_PREFIX:-trazza}
+    depends_on:
+      db:
+        condition: service_healthy
+      mqtt:
+        condition: service_started
+    networks: [trazza]
+
   traccar:
     # Servidor de tracking GPS: recibe los protocolos binarios de los rastreadores
     # (Teltonika/Queclink/Concox...) y reenvía cada posición a la API POR LA RED
