@@ -81,11 +81,20 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
       INGEST_TOKEN: ${INGEST_TOKEN}
+      # Fotos de activos en MinIO (host interno para admin; público para firmar).
+      MINIO_ENDPOINT: minio
+      MINIO_INTERNAL_PORT: "9000"
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET:-trazza}
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio:
+        condition: service_started
     ports:
       # Expuesto para dispositivos / apps móviles vía NPM (api.tudominio.com)
       - "${API_PORT:-8091}:8080"

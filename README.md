@@ -68,6 +68,11 @@ fuera de RLS y se controlan por código.
    - (opcional) `traccar.tudominio.com` → `127.0.0.1:${TRACCAR_PORT}` (8082) — UI de Traccar
    - (opcional) `s3.tudominio.com` → MinIO `:9000`, `minio.tudominio.com` → `:9001`
 
+   > Fotos de activos: seteá `MINIO_PUBLIC_URL=https://s3.tudominio.com` en `.env` (el
+   > host con el que el navegador alcanza MinIO). La API firma las URLs de subida/descarga
+   > con ese host; el bucket queda privado. El navegador sube directo a MinIO, así que
+   > habilitá CORS en MinIO para el dominio del panel si el navegador rechaza el PUT.
+
    > Si NPM corre en Docker, poné el stack de Trazza y NPM en la misma red o apuntá a la
    > IP del host. Firewall: exponé al público solo los puertos web vía NPM **más los
    > puertos de protocolo de Traccar** (rango `5000-5150` TCP/UDP), a los que se conectan
@@ -106,6 +111,8 @@ cd apps/web && npm install && npm run dev      # :5173 (proxya /api -> :8091)
 | POST | `/assets` | Crea activo |
 | GET | `/summary` | KPIs para el dashboard |
 | POST | `/assets/:id/position` | Actualiza posición/horas de un activo (evalúa geocercas y mantenimiento) |
+| POST | `/assets/:id/photo-upload` | URL prefirmada para subir la foto del activo a MinIO |
+| PUT | `/assets/:id/photo` | Confirma la foto subida (guarda la key) |
 | GET/POST | `/geofences` | Geocercas (círculo o polígono), GeoJSON |
 | GET | `/alerts` | Alertas (geocerca, mantenimiento, batería) |
 | GET/POST | `/maintenance/plans` | Planes de mantenimiento (por calendario u horas de uso) |
@@ -200,4 +207,5 @@ cd apps/web && npm install && npm run dev      # :5173 (proxya /api -> :8091)
 MVP actual: auth multitenant, activos, custodia (esquema), ingesta de telemetría, KPIs y
 landing, mapa en vivo (MapLibre), geocercas + motor de alertas, mantenimiento por horas
 de uso, alta de dispositivos, adapters de Traccar (GPS/4G) y LoRaWAN (ChirpStack/TTS),
-bridge MQTT→ingesta y credenciales por dispositivo. Siguiente: fotos de activos a MinIO.
+bridge MQTT→ingesta, credenciales por dispositivo y fotos de activos a MinIO
+(URLs prefirmadas). Siguiente: reportes/exportación y app de campo.

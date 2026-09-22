@@ -201,6 +201,18 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     load();
   };
 
+  const uploadPhoto = async (assetId: string, file: File) => {
+    try {
+      const { uploadUrl, key } = await api(`/assets/${assetId}/photo-upload`, {
+        method: 'POST', body: JSON.stringify({ contentType: file.type }),
+      });
+      const put = await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
+      if (!put.ok) throw new Error('no se pudo subir la foto a MinIO');
+      await api(`/assets/${assetId}/photo`, { method: 'PUT', body: JSON.stringify({ key }) });
+      load();
+    } catch (err: any) { setError(err.message); }
+  };
+
   const createGeofence = async () => {
     if (!gfName || !gfCenter) return;
     await api('/geofences', { method: 'POST', body: JSON.stringify({
@@ -462,6 +474,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           <table className="w-full text-sm">
             <thead className="bg-graphite-800 text-left text-graphite-300">
               <tr>
+                <th className="px-4 py-3 font-medium">Foto</th>
                 <th className="px-4 py-3 font-medium">Nombre</th>
                 <th className="px-4 py-3 font-medium">Tecnología</th>
                 <th className="px-4 py-3 font-medium">Valor USD</th>
@@ -470,10 +483,19 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             </thead>
             <tbody className="divide-y divide-graphite-800">
               {assets.length === 0 && (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-graphite-500">Sin activos todavía. Agregá el primero.</td></tr>
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-graphite-500">Sin activos todavía. Agregá el primero.</td></tr>
               )}
               {assets.map((a) => (
                 <tr key={a.id} className="text-graphite-200">
+                  <td className="px-4 py-3">
+                    <label className="group relative flex h-12 w-12 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-graphite-700 bg-graphite-900 text-graphite-500 hover:border-amber-500">
+                      {(a as any).photo_url
+                        ? <img src={(a as any).photo_url} alt={a.name} className="h-full w-full object-cover" />
+                        : <span className="text-lg">＋</span>}
+                      <input type="file" accept="image/*" className="hidden"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPhoto(a.id, f); e.target.value = ''; }} />
+                    </label>
+                  </td>
                   <td className="px-4 py-3">{a.name}</td>
                   <td className="px-4 py-3"><span className="rounded bg-graphite-700 px-2 py-0.5 text-xs font-bold uppercase text-amber-400">{a.tier}</span></td>
                   <td className="px-4 py-3">{(a as any).value_usd ?? '—'}</td>

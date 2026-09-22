@@ -1,7 +1,9 @@
 import type { FastifyInstance } from 'fastify';
+import { randomUUID } from 'node:crypto';
 import { withTenant } from '../db.js';
 import { evaluateGeofence } from '../services/geofence.js';
 import { evaluateMaintenance } from '../services/maintenance.js';
+import { presignGet, presignPut, extForContentType } from '../services/storage.js';
 
 export async function registerAssetRoutes(app: FastifyInstance) {
   // Listar activos del tenant (RLS filtra automáticamente).
@@ -9,12 +11,47 @@ export async function registerAssetRoutes(app: FastifyInstance) {
     return withTenant(req.user.tenant, async (c) => {
       const r = await c.query(
         `SELECT id, name, serial, tier, value_usd, status, last_battery, last_seen_at,
-                ST_X(last_geom) AS last_lng, ST_Y(last_geom) AS last_lat, created_at
+                ST_X(last_geom) AS last_lng, ST_Y(last_geom) AS last_lat, photo_url AS photo_key, created_at
            FROM assets
           ORDER BY created_at DESC
           LIMIT 500`,
       );
-      return { assets: r.rows };
+      // photo_url en la respuesta es una URL prefirmada de descarga (o null).
+      const assets = await Promise.all(r.rows.map(async (row: any) => {
+        const { photo_key, ...rest } = row;
+        let photo_url: string | null = null;
+        if (photo_key) photo_url = await presignGet(photo_key).catch(() => null);
+        return { ...rest, photo_url };
+      }));
+      return { assets };
+    });
+  });
+
+  // Solicitar una URL prefirmada para SUBIR la foto de un activo.
+  app.post('/assets/:id/photo-upload', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = (req.body ?? {}) as Record<string, any>;
+    return withTenant(req.user.tenant, async (c) => {
+      const a = await c.query('SELECT id FROM assets WHERE id = $1', [id]);
+      if (a.rowCount === 0) return reply.code(404).send({ error: 'activo no encontrado' });
+      const key = `t/${req.user.tenant}/a/${id}/${randomUUID()}${extForContentType(b.contentType)}`;
+      const uploadUrl = await presignPut(key);
+      return { uploadUrl, key };
+    });
+  });
+
+  // Confirmar la foto subida: guarda la key en el activo (valida el prefijo).
+  app.put('/assets/:id/photo', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = (req.body ?? {}) as Record<string, any>;
+    const key = typeof b.key === 'string' ? b.key : '';
+    const prefix = `t/${req.user.tenant}/a/${id}/`;
+    if (!key.startsWith(prefix)) return reply.code(400).send({ error: 'key inválida' });
+    return withTenant(req.user.tenant, async (c) => {
+      const u = await c.query('UPDATE assets SET photo_url = $2 WHERE id = $1 RETURNING id', [id, key]);
+      if (u.rowCount === 0) return reply.code(404).send({ error: 'activo no encontrado' });
+      const photo_url = await presignGet(key).catch(() => null);
+      return { ok: true, photo_url };
     });
   });
 

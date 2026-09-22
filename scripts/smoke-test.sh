@@ -33,7 +33,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "🚀 Levantando stack (build local)…"
-$COMPOSE up -d --build db redis mqtt api web bridge
+$COMPOSE up -d --build db redis mqtt minio api web bridge
 
 echo "⏳ Esperando a la API…"
 ok=""
@@ -149,6 +149,20 @@ for _ in $(seq 1 15); do
 done
 [ "$MBATT" = "42" ] || { echo "❌ el bridge MQTT no actualizó el activo (battery=$MBATT)"; $COMPOSE logs bridge | tail -20; exit 1; }
 echo "✓ bridge MQTT → ingesta por topic verificada"
+
+# Foto de activo: pedir URL prefirmada, subir a MinIO y confirmar.
+PHOTO=$(curl -sf -X POST "$API/assets/$ASSET/photo-upload" "${auth[@]}" \
+  -H 'Content-Type: application/json' -d '{"contentType":"image/png"}')
+PUTURL=$(echo "$PHOTO" | jq -r .uploadUrl)
+PKEY=$(echo "$PHOTO" | jq -r .key)
+[ -n "$PUTURL" ] && [ "$PUTURL" != "null" ] || { echo "❌ no se generó la URL prefirmada"; exit 1; }
+printf '\x89PNG\r\n\x1a\n' > /tmp/trazza-smoke.png
+curl -sf -X PUT --data-binary @/tmp/trazza-smoke.png -H 'Content-Type: image/png' "$PUTURL" >/dev/null
+curl -sf -X PUT "$API/assets/$ASSET/photo" "${auth[@]}" \
+  -H 'Content-Type: application/json' -d "{\"key\":\"$PKEY\"}" >/dev/null
+PURL=$(curl -sf "$API/assets" "${auth[@]}" | jq -r --arg id "$ASSET" '[.assets[] | select(.id==$id)][0].photo_url')
+[ -n "$PURL" ] && [ "$PURL" != "null" ] || { echo "❌ el activo no quedó con foto"; exit 1; }
+echo "✓ foto de activo subida a MinIO (URL prefirmada) verificada"
 
 # Verificar aislamiento RLS: un tenant nuevo no ve el activo anterior.
 TOKEN2=$(curl -sf -X POST "$API/auth/register" -H 'Content-Type: application/json' \
