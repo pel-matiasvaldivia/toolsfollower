@@ -382,8 +382,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             </code>
             <p className="mt-1 text-xs text-graphite-500">
               tenantId: <span className="text-graphite-300">{tenant.id ?? '—'}</span> · header
-              <span className="text-graphite-300"> X-Ingest-Token</span> · trackers GPS por Traccar →
-              <code className="text-graphite-300"> {`${apiBase}/adapters/traccar?tenantId=${tenant.id ?? '<uuid>'}`}</code>
+              <span className="text-graphite-300"> X-Ingest-Token</span>. Para GPS, Traccar ya
+              corre en el stack: poné este tenantId en <span className="text-graphite-300">TRACCAR_TENANT_ID</span> y
+              dá de alta el IMEI en la UI de Traccar.
             </p>
           </div>
 

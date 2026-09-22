@@ -16,7 +16,13 @@ api ── PostgreSQL (TimescaleDB + PostGIS, RLS por tenant)
     ── Redis (cache/colas)
     ── MinIO (fotos/documentos)
 mqtt (Mosquitto) ── ingesta de dispositivos GPS/LoRa
+traccar ── recibe los protocolos de los rastreadores y reenvía
+           posiciones a api:8080/adapters/traccar (red interna)
 ```
+
+Los rastreadores GPS del campo se conectan a **Traccar** (dentro del stack), que
+traduce sus protocolos binarios y **reenvía cada posición a la API por la red interna
+de Docker** (`http://api:8080/adapters/traccar`). No hay que instalar nada aparte.
 
 | Componente | Tecnología | Imagen |
 |---|---|---|
@@ -58,10 +64,18 @@ fuera de RLS y se controlan por código.
 4. En **Nginx Proxy Manager**, creá los Proxy Hosts:
    - `app.tudominio.com` → `127.0.0.1:${WEB_PORT}` (8090)
    - `api.tudominio.com` → `127.0.0.1:${API_PORT}` (8091)
+   - (opcional) `traccar.tudominio.com` → `127.0.0.1:${TRACCAR_PORT}` (8082) — UI de Traccar
    - (opcional) `s3.tudominio.com` → MinIO `:9000`, `minio.tudominio.com` → `:9001`
 
    > Si NPM corre en Docker, poné el stack de Trazza y NPM en la misma red o apuntá a la
-   > IP del host. Firewall: exponé al público solo los puertos vía NPM.
+   > IP del host. Firewall: exponé al público solo los puertos web vía NPM **más los
+   > puertos de protocolo de Traccar** (rango `5000-5150` TCP/UDP), a los que se conectan
+   > los rastreadores directamente (no pasan por NPM). Podés acotar el rango a los puertos
+   > de tus equipos (Teltonika 5027, GT06/Concox 5023, Queclink 5002…).
+
+5. Completá `TRACCAR_TENANT_ID` en `.env` con el UUID del cliente (lo ves en el panel →
+   **Dispositivos**) para que Traccar sepa a qué tenant asignar las posiciones, y reiniciá
+   Traccar: `docker compose up -d traccar`.
 
 El frontend llama a `/api` y nginx lo proxea al contenedor `api`; además el puerto de la
 API queda expuesto aparte para dispositivos y apps móviles.
@@ -118,14 +132,17 @@ curl -X POST http://api.tudominio.com/telemetry/ingest \
    El `identifier` es el **IMEI** (GPS/4G), **DevEUI** (LoRaWAN) o **EPC** (RFID).
 
 2. **Configurar el envío de telemetría** según la tecnología:
-   - **GPS/4G (Teltonika, Queclink, Concox…):** hablan protocolos binarios, así que
-     se pone **[Traccar](https://www.traccar.org/)** delante. En Traccar, *Settings →
-     Server → Forwarding* (modo JSON), apuntá a:
-     ```
-     https://trazza.tudominio.com/api/adapters/traccar?tenantId=<uuid>&token=<INGEST_TOKEN>
-     ```
-     El `device.uniqueId` (IMEI) resuelve el activo; `attributes.hours` (ms) se
-     convierte a horas de motor y alimenta el mantenimiento por uso.
+   - **GPS/4G (Teltonika, Queclink, Concox…):** hablan protocolos binarios. **Traccar
+     ya viene en el stack** y reenvía las posiciones a la API por la red interna
+     (`FORWARD_URL=http://api:8080/adapters/traccar`), así que solo tenés que:
+     1. Dar de alta el rastreador en la **UI de Traccar** (`traccar.tudominio.com`,
+        *Devices → +*), con **Identifier = IMEI** (el mismo IMEI que cargás en Trazza).
+     2. Configurar el equipo para reportar a **`<IP del VPS>:<puerto de su protocolo>`**
+        (Teltonika 5027, GT06/Concox 5023, Queclink 5002…) por SMS/app del fabricante.
+
+     El `device.uniqueId` (IMEI) resuelve el activo en Trazza; `attributes.hours` (ms)
+     se convierte a horas de motor y alimenta el mantenimiento por uso. El token viaja
+     en el header `X-Ingest-Token` (variable `INGEST_TOKEN`).
    - **LoRaWAN:** en el LNS (ChirpStack / The Things Stack) creá una integración
      HTTP que haga `POST` a `/telemetry/ingest` con `deviceIdentifier` = DevEUI y el
      payload decodificado a `lat`/`lng`/`battery`.
