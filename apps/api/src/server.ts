@@ -9,6 +9,7 @@ import { registerGeofenceRoutes } from './routes/geofences.js';
 import { registerMaintenanceRoutes } from './routes/maintenance.js';
 import { registerDeviceRoutes } from './routes/devices.js';
 import { registerAdapterRoutes } from './routes/adapters.js';
+import { ensureBucket } from './services/storage.js';
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {
@@ -46,6 +47,11 @@ await registerGeofenceRoutes(app);
 await registerMaintenanceRoutes(app);
 await registerDeviceRoutes(app);
 await registerAdapterRoutes(app);
+
+// Bucket de fotos (best-effort: si MinIO no está, la API arranca igual).
+ensureBucket().catch((err) =>
+  app.log.warn(`MinIO no disponible; las fotos no funcionarán hasta que esté arriba: ${err.message}`),
+);
 
 try {
   await app.listen({ port: config.port, host: config.host });

@@ -16,6 +16,7 @@ api ── PostgreSQL (TimescaleDB + PostGIS, RLS por tenant)
     ── Redis (cache/colas)
     ── MinIO (fotos/documentos)
 mqtt (Mosquitto) ── ingesta de dispositivos GPS/LoRa
+bridge ── consume el broker MQTT y normaliza cada mensaje a la ingesta
 traccar ── recibe los protocolos de los rastreadores y reenvía
            posiciones a api:8080/adapters/traccar (red interna)
 ```
@@ -67,6 +68,11 @@ fuera de RLS y se controlan por código.
    - (opcional) `traccar.tudominio.com` → `127.0.0.1:${TRACCAR_PORT}` (8082) — UI de Traccar
    - (opcional) `s3.tudominio.com` → MinIO `:9000`, `minio.tudominio.com` → `:9001`
 
+   > Fotos de activos: seteá `MINIO_PUBLIC_URL=https://s3.tudominio.com` en `.env` (el
+   > host con el que el navegador alcanza MinIO). La API firma las URLs de subida/descarga
+   > con ese host; el bucket queda privado. El navegador sube directo a MinIO, así que
+   > habilitá CORS en MinIO para el dominio del panel si el navegador rechaza el PUT.
+
    > Si NPM corre en Docker, poné el stack de Trazza y NPM en la misma red o apuntá a la
    > IP del host. Firewall: exponé al público solo los puertos web vía NPM **más los
    > puertos de protocolo de Traccar** (rango `5000-5150` TCP/UDP), a los que se conectan
@@ -105,22 +111,35 @@ cd apps/web && npm install && npm run dev      # :5173 (proxya /api -> :8091)
 | POST | `/assets` | Crea activo |
 | GET | `/summary` | KPIs para el dashboard |
 | POST | `/assets/:id/position` | Actualiza posición/horas de un activo (evalúa geocercas y mantenimiento) |
+| POST | `/assets/:id/photo-upload` | URL prefirmada para subir la foto del activo a MinIO |
+| PUT | `/assets/:id/photo` | Confirma la foto subida (guarda la key) |
 | GET/POST | `/geofences` | Geocercas (círculo o polígono), GeoJSON |
 | GET | `/alerts` | Alertas (geocerca, mantenimiento, batería) |
 | GET/POST | `/maintenance/plans` | Planes de mantenimiento (por calendario u horas de uso) |
 | POST | `/maintenance/plans/:id/complete` | Registra el service y reprograma el vencimiento |
-| GET/POST | `/devices` | Alta y listado de dispositivos (IMEI/DevEUI/EPC) |
+| GET/POST | `/devices` | Alta y listado de dispositivos (el alta devuelve la credencial una vez) |
 | PATCH/DELETE | `/devices/:id` | Vincular/desvincular a un activo o dar de baja |
-| POST | `/telemetry/ingest` | Ingesta de dispositivos (header `X-Ingest-Token`) |
+| POST | `/devices/:id/rotate-key` | Rota la credencial del dispositivo (devuelve la nueva una vez) |
+| POST | `/telemetry/ingest` | Ingesta (credencial `X-Device-Key`, o `X-Ingest-Token` + tenantId) |
 | POST | `/adapters/traccar` | Recibe el *position forwarding* JSON de Traccar |
 | POST | `/adapters/lorawan` | Recibe uplinks de ChirpStack v4 / The Things Stack v3 |
 
-Ejemplo de ingesta:
-```bash
-curl -X POST http://api.tudominio.com/telemetry/ingest \
-  -H "X-Ingest-Token: $INGEST_TOKEN" -H "Content-Type: application/json" \
-  -d '{"tenantId":"<uuid>","deviceIdentifier":"IMEI123","lat":-32.89,"lng":-68.84,"battery":92}'
-```
+**Autenticación de la ingesta** — dos modos:
+
+1. **Credencial por dispositivo** (recomendado para equipos que hablan HTTP directo):
+   cada dispositivo recibe una clave `trz_…` al darlo de alta (se muestra una sola vez;
+   la base guarda sólo su hash SHA-256). Resuelve tenant + activo por sí sola:
+   ```bash
+   curl -X POST https://api.tudominio.com/telemetry/ingest \
+     -H "X-Device-Key: trz_xxxxxxxx" -H "Content-Type: application/json" \
+     -d '{"lat":-32.89,"lng":-68.84,"battery":92}'
+   ```
+2. **Token compartido** (gateways de confianza: Traccar, LNS, bridge MQTT):
+   ```bash
+   curl -X POST https://api.tudominio.com/telemetry/ingest \
+     -H "X-Ingest-Token: $INGEST_TOKEN" -H "Content-Type: application/json" \
+     -d '{"tenantId":"<uuid>","deviceIdentifier":"IMEI123","lat":-32.89,"lng":-68.84,"battery":92}'
+   ```
 
 ## Vincular dispositivos físicos
 
@@ -156,8 +175,14 @@ curl -X POST http://api.tudominio.com/telemetry/ingest \
      `202` para que el LNS no reintente.
    - **RFID:** el middleware del lector hace `POST` a `/telemetry/ingest` con el EPC
      leído en portería (presencia).
-   - **Cualquiera con MQTT:** publican al broker Mosquitto (`:1883`); un bridge
-     MQTT→ingest los normaliza (pendiente en el roadmap).
+   - **Cualquiera con MQTT:** publican al broker Mosquitto (`:1883`) y el servicio
+     `bridge` los ingesta. Convención de topic:
+     ```
+     trazza/<tenantId>/<deviceIdentifier>   payload JSON: {"lat":-32.9,"lng":-68.8,"battery":80}
+     ```
+     El `tenantId`/`deviceIdentifier` también pueden ir dentro del payload (topic
+     genérico `trazza/ingest`). El `bridge` corre en **una sola instancia** (no
+     escalar). Asegurá el broker con usuarios/ACLs en producción (`mosquitto.conf`).
 
 ## Testing
 
@@ -181,5 +206,6 @@ curl -X POST http://api.tudominio.com/telemetry/ingest \
 
 MVP actual: auth multitenant, activos, custodia (esquema), ingesta de telemetría, KPIs y
 landing, mapa en vivo (MapLibre), geocercas + motor de alertas, mantenimiento por horas
-de uso, alta de dispositivos y adapters de Traccar (GPS/4G) y LoRaWAN (ChirpStack/TTS).
-Siguiente: bridge MQTT→ingest, credenciales por dispositivo y fotos a MinIO.
+de uso, alta de dispositivos, adapters de Traccar (GPS/4G) y LoRaWAN (ChirpStack/TTS),
+bridge MQTT→ingesta, credenciales por dispositivo y fotos de activos a MinIO
+(URLs prefirmadas). Siguiente: reportes/exportación y app de campo.

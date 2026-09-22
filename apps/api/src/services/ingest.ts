@@ -3,7 +3,8 @@ import { evaluateGeofence } from './geofence.js';
 import { evaluateMaintenance } from './maintenance.js';
 
 export interface TelemetryPoint {
-  deviceIdentifier?: string | null;
+  deviceId?: string | null;         // device ya resuelto (p. ej. por clave de dispositivo)
+  deviceIdentifier?: string | null; // IMEI / DevEUI / EPC
   assetId?: string | null;
   lat?: number | null;
   lng?: number | null;
@@ -27,10 +28,17 @@ export async function ingestPoint(c: PoolClient, p: TelemetryPoint) {
   const battery = p.battery != null ? Number(p.battery) : null;
   const engineHours = p.engineHours != null ? Number(p.engineHours) : null;
 
-  // Resolver el activo por el identificador del dispositivo si no vino explícito.
+  // Resolver el activo a partir del dispositivo (por id ya resuelto, o por
+  // identificador) si no vino un assetId explícito.
   let assetId: string | null = p.assetId ?? null;
   let deviceId: string | null = null;
-  if (p.deviceIdentifier) {
+  if (p.deviceId) {
+    const d = await c.query('SELECT id, asset_id FROM devices WHERE id = $1 LIMIT 1', [p.deviceId]);
+    if (d.rowCount) {
+      deviceId = d.rows[0].id;
+      assetId = assetId ?? d.rows[0].asset_id;
+    }
+  } else if (p.deviceIdentifier) {
     const d = await c.query(
       'SELECT id, asset_id FROM devices WHERE identifier = $1 LIMIT 1',
       [p.deviceIdentifier],

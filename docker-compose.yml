@@ -81,11 +81,20 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
       INGEST_TOKEN: ${INGEST_TOKEN}
+      # Fotos de activos en MinIO (host interno para admin; público para firmar).
+      MINIO_ENDPOINT: minio
+      MINIO_INTERNAL_PORT: "9000"
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET:-trazza}
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio:
+        condition: service_started
     ports:
       # Expuesto para dispositivos / apps móviles vía NPM (api.tudominio.com)
       - "${API_PORT:-8091}:8080"
@@ -104,6 +113,25 @@ services:
     ports:
       # Frontend + landing vía NPM (app.tudominio.com). nginx proxea /api -> api:8080
       - "${WEB_PORT:-8090}:8080"
+    networks: [trazza]
+
+  bridge:
+    # Bridge MQTT -> ingesta. Misma imagen que la API, otro comando. Consume el
+    # broker Mosquitto y normaliza cada mensaje con ingestPoint (red interna).
+    # UNA sola instancia: no escalar (evita procesar cada mensaje N veces).
+    image: ${IMAGE_REPO}/trazza-api:${IMAGE_TAG:-latest}
+    <<: *restart
+    command: ["node", "dist/bridge.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      MQTT_URL: mqtt://mqtt:1883
+      MQTT_TOPIC_PREFIX: ${MQTT_TOPIC_PREFIX:-trazza}
+    depends_on:
+      db:
+        condition: service_healthy
+      mqtt:
+        condition: service_started
     networks: [trazza]
 
   traccar:

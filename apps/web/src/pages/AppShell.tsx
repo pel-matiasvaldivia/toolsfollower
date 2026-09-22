@@ -98,6 +98,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [dvKind, setDvKind] = useState<'gps' | 'lora' | 'rfid'>('gps');
   const [dvIdent, setDvIdent] = useState('');
   const [dvAsset, setDvAsset] = useState('');
+  // Credencial recién generada (se muestra una sola vez).
+  const [newKey, setNewKey] = useState<{ id: string; key: string } | null>(null);
 
   // Form de plan de mantenimiento.
   const [mpAsset, setMpAsset] = useState('');
@@ -172,10 +174,19 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const createDevice = async () => {
     if (!dvIdent.trim()) return;
     try {
-      await api('/devices', { method: 'POST', body: JSON.stringify({
+      const data = await api('/devices', { method: 'POST', body: JSON.stringify({
         kind: dvKind, identifier: dvIdent.trim(), assetId: dvAsset || null,
       })});
       setDvIdent(''); setDvAsset('');
+      if (data.key) setNewKey({ id: data.device.id, key: data.key });
+      load();
+    } catch (err: any) { setError(err.message); }
+  };
+
+  const rotateKey = async (id: string) => {
+    try {
+      const data = await api(`/devices/${id}/rotate-key`, { method: 'POST', body: JSON.stringify({}) });
+      if (data.key) setNewKey({ id, key: data.key });
       load();
     } catch (err: any) { setError(err.message); }
   };
@@ -188,6 +199,18 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const deleteDevice = async (id: string) => {
     await api(`/devices/${id}`, { method: 'DELETE' });
     load();
+  };
+
+  const uploadPhoto = async (assetId: string, file: File) => {
+    try {
+      const { uploadUrl, key } = await api(`/assets/${assetId}/photo-upload`, {
+        method: 'POST', body: JSON.stringify({ contentType: file.type }),
+      });
+      const put = await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
+      if (!put.ok) throw new Error('no se pudo subir la foto a MinIO');
+      await api(`/assets/${assetId}/photo`, { method: 'PUT', body: JSON.stringify({ key }) });
+      load();
+    } catch (err: any) { setError(err.message); }
   };
 
   const createGeofence = async () => {
@@ -381,12 +404,28 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               {`${apiBase}/telemetry/ingest`}
             </code>
             <p className="mt-1 text-xs text-graphite-500">
-              tenantId: <span className="text-graphite-300">{tenant.id ?? '—'}</span> · header
-              <span className="text-graphite-300"> X-Ingest-Token</span>. Para GPS, Traccar ya
-              corre en el stack: poné este tenantId en <span className="text-graphite-300">TRACCAR_TENANT_ID</span> y
-              dá de alta el IMEI en la UI de Traccar.
+              Equipos que hablan HTTP directo: autenticá con la credencial del dispositivo
+              (header <span className="text-graphite-300">X-Device-Key</span>) — no hace falta tenantId.
+              Gateways (Traccar, LNS, MQTT) usan el token compartido + tenantId
+              (<span className="text-graphite-300">{tenant.id ?? '—'}</span>).
             </p>
           </div>
+
+          {newKey && (
+            <div className="mt-3 rounded-xl border border-amber-500/50 bg-amber-500/10 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-amber-200">Credencial del dispositivo — guardala ahora</p>
+                  <p className="mt-1 text-xs text-amber-300/80">Se muestra una sola vez. Cargala en el dispositivo como header <span className="font-mono">X-Device-Key</span>.</p>
+                  <code className="mt-2 block break-all rounded bg-graphite-950/60 px-3 py-2 font-mono text-xs text-amber-200">{newKey.key}</code>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button onClick={() => navigator.clipboard?.writeText(newKey.key)} className="btn-ghost py-1.5 text-xs">Copiar</button>
+                  <button onClick={() => setNewKey(null)} className="btn-ghost py-1.5 text-xs">Listo</button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {devices.length > 0 && (
             <div className="mt-4 overflow-hidden rounded-xl border border-graphite-700">
@@ -395,6 +434,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   <tr>
                     <th className="px-4 py-3 font-medium">Tipo</th>
                     <th className="px-4 py-3 font-medium">Identificador</th>
+                    <th className="px-4 py-3 font-medium">Credencial</th>
                     <th className="px-4 py-3 font-medium">Activo vinculado</th>
                     <th className="px-4 py-3 font-medium"></th>
                   </tr>
@@ -404,6 +444,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                     <tr key={d.id} className="text-graphite-200">
                       <td className="px-4 py-3"><span className="rounded bg-graphite-700 px-2 py-0.5 text-xs font-bold uppercase text-amber-400">{d.kind}</span></td>
                       <td className="px-4 py-3 font-mono text-xs">{d.identifier}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-graphite-400">{d.key_prefix ? `${d.key_prefix}…` : '—'}</td>
                       <td className="px-4 py-3">
                         <select value={d.asset_id ?? ''} onChange={(e) => bindDevice(d.id, e.target.value)}
                           className="rounded-lg border border-graphite-700 bg-graphite-900 px-2 py-1 text-xs text-white outline-none focus:border-amber-500">
@@ -411,8 +452,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                           {assets.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                         </select>
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <button onClick={() => deleteDevice(d.id)} className="text-xs text-graphite-400 hover:text-red-400">Eliminar</button>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <button onClick={() => rotateKey(d.id)} className="text-xs text-graphite-400 hover:text-amber-400">Rotar clave</button>
+                        <button onClick={() => deleteDevice(d.id)} className="ml-3 text-xs text-graphite-400 hover:text-red-400">Eliminar</button>
                       </td>
                     </tr>
                   ))}
@@ -432,6 +474,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           <table className="w-full text-sm">
             <thead className="bg-graphite-800 text-left text-graphite-300">
               <tr>
+                <th className="px-4 py-3 font-medium">Foto</th>
                 <th className="px-4 py-3 font-medium">Nombre</th>
                 <th className="px-4 py-3 font-medium">Tecnología</th>
                 <th className="px-4 py-3 font-medium">Valor USD</th>
@@ -440,10 +483,19 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             </thead>
             <tbody className="divide-y divide-graphite-800">
               {assets.length === 0 && (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-graphite-500">Sin activos todavía. Agregá el primero.</td></tr>
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-graphite-500">Sin activos todavía. Agregá el primero.</td></tr>
               )}
               {assets.map((a) => (
                 <tr key={a.id} className="text-graphite-200">
+                  <td className="px-4 py-3">
+                    <label className="group relative flex h-12 w-12 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-graphite-700 bg-graphite-900 text-graphite-500 hover:border-amber-500">
+                      {(a as any).photo_url
+                        ? <img src={(a as any).photo_url} alt={a.name} className="h-full w-full object-cover" />
+                        : <span className="text-lg">＋</span>}
+                      <input type="file" accept="image/*" className="hidden"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPhoto(a.id, f); e.target.value = ''; }} />
+                    </label>
+                  </td>
                   <td className="px-4 py-3">{a.name}</td>
                   <td className="px-4 py-3"><span className="rounded bg-graphite-700 px-2 py-0.5 text-xs font-bold uppercase text-amber-400">{a.tier}</span></td>
                   <td className="px-4 py-3">{(a as any).value_usd ?? '—'}</td>
