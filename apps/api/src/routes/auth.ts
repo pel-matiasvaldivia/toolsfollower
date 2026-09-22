@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { pool } from '../db.js';
+import { slugify } from '../util/slug.js';
 
 export async function registerAuthRoutes(app: FastifyInstance) {
   // Registro: crea tenant + usuario owner en una transacción.
@@ -13,7 +14,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     try {
       await client.query('BEGIN');
       const hash = await bcrypt.hash(password, 10);
-      const slug = company.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const slug = slugify(company);
       const t = await client.query(
         'INSERT INTO tenants (name, slug) VALUES ($1, $2) RETURNING id',
         [company, slug || null],
