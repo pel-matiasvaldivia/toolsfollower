@@ -134,6 +134,31 @@ services:
         condition: service_started
     networks: [trazza]
 
+  notifier:
+    # Worker de notificaciones. Misma imagen que la API, otro comando. Procesa la
+    # cola notification_outbox y envía por email (SMTP) / WhatsApp (Cloud API).
+    # UNA sola instancia: no escalar.
+    image: ${IMAGE_REPO}/trazza-api:${IMAGE_TAG:-latest}
+    <<: *restart
+    command: ["node", "dist/notifier.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-Trazza <no-reply@trazza.local>}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      WHATSAPP_TOKEN: ${WHATSAPP_TOKEN:-}
+      WHATSAPP_PHONE_ID: ${WHATSAPP_PHONE_ID:-}
+      WHATSAPP_API_BASE: ${WHATSAPP_API_BASE:-https://graph.facebook.com/v21.0}
+      NOTIFIER_INTERVAL_MS: ${NOTIFIER_INTERVAL_MS:-5000}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [trazza]
+
   traccar:
     # Servidor de tracking GPS: recibe los protocolos binarios de los rastreadores
     # (Teltonika/Queclink/Concox...) y reenvía cada posición a la API POR LA RED

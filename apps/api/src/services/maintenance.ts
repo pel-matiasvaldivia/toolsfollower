@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg';
+import { enqueueAlert } from './notifications.js';
 
 /**
  * Evalúa los planes de mantenimiento de un activo y genera una alerta
@@ -32,14 +33,16 @@ export async function evaluateMaintenance(
   );
   if (due.rowCount === 0) return;
 
-  await client.query(
+  const ins = await client.query(
     `INSERT INTO alerts (tenant_id, asset_id, kind, severity, message)
      SELECT current_tenant(), $1, 'maintenance_due', 'warning',
             'Mantenimiento vencido'
       WHERE NOT EXISTS (
         SELECT 1 FROM alerts
          WHERE asset_id = $1 AND kind = 'maintenance_due' AND resolved_at IS NULL
-      )`,
+      )
+     RETURNING id, asset_id, kind, severity, message`,
     [assetId],
   );
+  if (ins.rowCount) await enqueueAlert(client, ins.rows[0]);
 }

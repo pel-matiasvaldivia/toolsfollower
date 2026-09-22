@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg';
+import { enqueueAlert } from './notifications.js';
 
 /**
  * Evalúa la posición de un activo contra las geocercas del tenant.
@@ -27,16 +28,18 @@ export async function evaluateGeofence(
   if (total === 0) return;
 
   if (inside === 0) {
-    await client.query(
+    const ins = await client.query(
       `INSERT INTO alerts (tenant_id, asset_id, kind, severity, message)
        SELECT current_tenant(), $1, 'geofence_exit', 'warning',
               'El activo salió de la zona permitida'
         WHERE NOT EXISTS (
           SELECT 1 FROM alerts
            WHERE asset_id = $1 AND kind = 'geofence_exit' AND resolved_at IS NULL
-        )`,
+        )
+       RETURNING id, asset_id, kind, severity, message`,
       [assetId],
     );
+    if (ins.rowCount) await enqueueAlert(client, ins.rows[0]);
   } else {
     await client.query(
       `UPDATE alerts SET resolved_at = now()

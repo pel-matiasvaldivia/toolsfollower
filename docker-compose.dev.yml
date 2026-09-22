@@ -20,6 +20,11 @@ services:
       context: ./apps/api
       dockerfile: Dockerfile
 
+  notifier:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+
   web:
     build:
       context: ./apps/web

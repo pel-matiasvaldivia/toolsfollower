@@ -22,7 +22,7 @@ psql -v ON_ERROR_STOP=1 -v app_user="${APP_DB_USER}" \
     FOREACH t IN ARRAY ARRAY[
       'categories','locations','assets','custody_assignments','devices',
       'geofences','maintenance_plans','maintenance_events','alerts',
-      'audit_log','telemetry'
+      'notification_settings','audit_log','telemetry'
     ]
     LOOP
       EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
