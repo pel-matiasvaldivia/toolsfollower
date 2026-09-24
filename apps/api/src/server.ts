@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import { config } from './config.js';
+import { pool } from './db.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerAssetRoutes } from './routes/assets.js';
 import { registerTelemetryRoutes } from './routes/telemetry.js';
@@ -36,8 +37,13 @@ app.decorate('authenticate', async (req: any, reply: any) => {
   try {
     await req.jwtVerify();
   } catch {
-    reply.code(401).send({ error: 'unauthorized' });
+    return reply.code(401).send({ error: 'unauthorized' });
   }
+  // El JWT puede ser válido pero apuntar a un tenant que ya no existe (p. ej.
+  // tras un reset de la base). Devolvemos 401 para que el front cierre sesión,
+  // en lugar de fallar más adelante con un 500 de FK.
+  const t = await pool.query('SELECT 1 FROM tenants WHERE id = $1', [req.user.tenant]);
+  if (t.rowCount === 0) return reply.code(401).send({ error: 'sesión inválida' });
 });
 
 app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }));

@@ -24,6 +24,13 @@ export async function api(path: string, opts: RequestInit = {}) {
       ...(opts.headers ?? {}),
     },
   });
+  // Sesión inválida/expirada (token viejo o tenant inexistente): limpiar y volver
+  // al login. Sólo si había sesión, para no romper el form de login/registro.
+  if (res.status === 401 && token) {
+    clearSession();
+    window.location.reload();
+    throw new Error('Sesión expirada. Ingresá de nuevo.');
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? `Error ${res.status}`);
