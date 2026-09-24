@@ -70,10 +70,18 @@ TENANT=$(echo "$REG" | jq -r .tenant.id)
 auth=(-H "Authorization: Bearer $TOKEN")
 echo "✓ registro + JWT"
 
+# Depósito (location) y activo asignado a él.
+LOC=$(curl -sf -X POST "$API/locations" "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"name":"Deposito central","kind":"depot"}' | jq -r .location.id)
+[ -n "$LOC" ] && [ "$LOC" != "null" ] || { echo "❌ crear depósito falló"; exit 1; }
+echo "✓ depósito creado"
+
 ASSET=$(curl -sf -X POST "$API/assets" "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"name":"Motogenerador","tier":"gps","value_usd":4000}' | jq -r .asset.id)
+  -d "{\"name\":\"Motogenerador\",\"tier\":\"gps\",\"value_usd\":4000,\"locationId\":\"$LOC\"}" | jq -r .asset.id)
 [ -n "$ASSET" ] && [ "$ASSET" != "null" ] || { echo "❌ crear activo falló"; exit 1; }
-echo "✓ activo creado"
+ALOC=$(curl -sf "$API/assets" "${auth[@]}" | jq -r --arg id "$ASSET" '[.assets[] | select(.id==$id)][0].location_name')
+[ "$ALOC" = "Deposito central" ] || { echo "❌ el activo no quedó vinculado al depósito (loc=$ALOC)"; exit 1; }
+echo "✓ activo creado y asignado al depósito"
 
 curl -sf -X POST "$API/geofences" "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"name":"Deposito","center":[-68.8458,-32.8895],"radiusM":100}' >/dev/null

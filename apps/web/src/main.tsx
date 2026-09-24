@@ -13,7 +13,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/app" element={
-          <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-graphite-400">Cargando…</div>}>
+          <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-graphite-500">Cargando…</div>}>
             <AppShell />
           </Suspense>
         } />

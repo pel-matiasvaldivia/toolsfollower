@@ -10,10 +10,14 @@ export async function registerAssetRoutes(app: FastifyInstance) {
   app.get('/assets', { preHandler: [app.authenticate] }, async (req) => {
     return withTenant(req.user.tenant, async (c) => {
       const r = await c.query(
-        `SELECT id, name, serial, tier, value_usd, status, last_battery, last_seen_at,
-                ST_X(last_geom) AS last_lng, ST_Y(last_geom) AS last_lat, photo_url AS photo_key, created_at
-           FROM assets
-          ORDER BY created_at DESC
+        `SELECT a.id, a.name, a.serial, a.tier, a.value_usd, a.status,
+                a.last_battery, a.last_seen_at, a.location_id,
+                l.name AS location_name,
+                ST_X(a.last_geom) AS last_lng, ST_Y(a.last_geom) AS last_lat,
+                a.photo_url AS photo_key, a.created_at
+           FROM assets a
+           LEFT JOIN locations l ON l.id = a.location_id
+          ORDER BY a.created_at DESC
           LIMIT 500`,
       );
       // photo_url en la respuesta es una URL prefirmada de descarga (o null).
@@ -61,13 +65,18 @@ export async function registerAssetRoutes(app: FastifyInstance) {
     if (!b.name) return reply.code(400).send({ error: 'name requerido' });
     const tier = ['gps', 'lora', 'rfid'].includes(b.tier) ? b.tier : 'rfid';
     return withTenant(req.user.tenant, async (c) => {
-      const r = await c.query(
-        `INSERT INTO assets (tenant_id, name, serial, tier, value_usd)
-         VALUES (current_tenant(), $1, $2, $3, $4)
-         RETURNING id, name, serial, tier, value_usd, status, created_at`,
-        [b.name, b.serial ?? null, tier, b.value_usd ?? null],
-      );
-      return reply.code(201).send({ asset: r.rows[0] });
+      try {
+        const r = await c.query(
+          `INSERT INTO assets (tenant_id, name, serial, tier, value_usd, location_id)
+           VALUES (current_tenant(), $1, $2, $3, $4, $5)
+           RETURNING id, name, serial, tier, value_usd, status, location_id, created_at`,
+          [b.name, b.serial ?? null, tier, b.value_usd ?? null, b.locationId ?? null],
+        );
+        return reply.code(201).send({ asset: r.rows[0] });
+      } catch (err: any) {
+        if (err?.code === '23503') return reply.code(400).send({ error: 'locationId inválido' });
+        throw err;
+      }
     });
   });
 

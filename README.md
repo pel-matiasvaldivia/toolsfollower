@@ -111,6 +111,8 @@ cd apps/web && npm install && npm run dev      # :5173 (proxya /api -> :8091)
 | GET | `/assets` | Lista activos del tenant |
 | POST | `/assets` | Crea activo |
 | GET | `/summary` | KPIs para el dashboard |
+| GET/POST | `/locations` | Depósitos y obras (punto de partida del flujo) |
+| PATCH/DELETE | `/locations/:id` | Editar o eliminar un depósito/obra |
 | POST | `/assets/:id/position` | Actualiza posición/horas de un activo (evalúa geocercas y mantenimiento) |
 | POST | `/assets/:id/photo-upload` | URL prefirmada para subir la foto del activo a MinIO |
 | PUT | `/assets/:id/photo` | Confirma la foto subida (guarda la key) |

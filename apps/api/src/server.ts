@@ -10,6 +10,7 @@ import { registerMaintenanceRoutes } from './routes/maintenance.js';
 import { registerDeviceRoutes } from './routes/devices.js';
 import { registerAdapterRoutes } from './routes/adapters.js';
 import { registerNotificationRoutes } from './routes/notifications.js';
+import { registerLocationRoutes } from './routes/locations.js';
 import { ensureBucket } from './services/storage.js';
 
 declare module '@fastify/jwt' {
@@ -49,6 +50,7 @@ await registerMaintenanceRoutes(app);
 await registerDeviceRoutes(app);
 await registerAdapterRoutes(app);
 await registerNotificationRoutes(app);
+await registerLocationRoutes(app);
 
 // Bucket de fotos (best-effort: si MinIO no está, la API arranca igual).
 ensureBucket().catch((err) =>

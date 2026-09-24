@@ -32,7 +32,7 @@ function Logo({ className = 'h-8 w-8' }: { className?: string }) {
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-graphite-900">
+    <div className="min-h-screen bg-white">
       <Nav />
       <Hero />
       <Stats />
@@ -50,19 +50,19 @@ export default function Landing() {
 /* ------------------------------ Nav ------------------------------ */
 function Nav() {
   return (
-    <header className="sticky top-0 z-40 border-b border-graphite-800 bg-graphite-900/80 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-graphite-200 bg-white/80 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         <a href="#top" className="flex items-center gap-2">
           <Logo />
-          <span className="text-xl font-extrabold tracking-tight text-white">Trazza</span>
+          <span className="text-xl font-extrabold tracking-tight text-graphite-900">Trazza</span>
         </a>
-        <nav className="hidden items-center gap-8 text-sm font-medium text-graphite-300 md:flex">
-          <a href="#features" className="hover:text-white">Funciones</a>
-          <a href="#tecnologia" className="hover:text-white">Tecnología</a>
-          <a href="#precios" className="hover:text-white">Precios</a>
+        <nav className="hidden items-center gap-8 text-sm font-medium text-graphite-600 md:flex">
+          <a href="#features" className="hover:text-graphite-900">Funciones</a>
+          <a href="#tecnologia" className="hover:text-graphite-900">Tecnología</a>
+          <a href="#precios" className="hover:text-graphite-900">Precios</a>
         </nav>
         <div className="flex items-center gap-3">
-          <Link to="/app" className="text-sm font-semibold text-graphite-200 hover:text-white">Ingresar</Link>
+          <Link to="/app" className="text-sm font-semibold text-graphite-700 hover:text-graphite-900">Ingresar</Link>
           <a href="#precios" className="btn-primary py-2 text-sm">Pedir demo</a>
         </div>
       </div>
@@ -74,18 +74,18 @@ function Nav() {
 function Hero() {
   return (
     <section id="top" className="relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 opacity-40"
-        style={{ background: 'radial-gradient(60% 50% at 70% 0%, rgba(245,158,11,0.18), transparent 70%)' }} />
+      <div className="pointer-events-none absolute inset-0"
+        style={{ background: 'radial-gradient(55% 45% at 70% 0%, rgba(245,158,11,0.12), transparent 70%)' }} />
       <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 md:grid-cols-2 md:py-28">
         <div>
-          <span className="inline-flex items-center gap-2 rounded-full border border-graphite-700 bg-graphite-800/60 px-3 py-1 text-xs font-medium text-amber-400">
+          <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Hecho para constructoras · Mendoza, Argentina
           </span>
-          <h1 className="mt-5 text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">
+          <h1 className="mt-5 text-4xl font-extrabold leading-tight tracking-tight text-graphite-900 sm:text-5xl">
             Cada herramienta,<br /><span className="text-amber-500">siempre a la vista.</span>
           </h1>
-          <p className="mt-5 max-w-lg text-lg text-graphite-300">
-            Trazza es tu <strong className="text-white">pañol digital</strong>: sabé dónde está cada
+          <p className="mt-5 max-w-lg text-lg text-graphite-600">
+            Trazza es tu <strong className="text-graphite-900">pañol digital</strong>: sabé dónde está cada
             equipo, quién es el responsable y cuándo le toca mantenimiento. Motogeneradores,
             rotomartillos y niveladoras, todo en una sola pantalla.
           </p>
@@ -93,7 +93,7 @@ function Hero() {
             <a href="#precios" className="btn-primary">Empezar ahora</a>
             <a href="#tecnologia" className="btn-ghost">Ver cómo funciona</a>
           </div>
-          <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-graphite-400">
+          <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-graphite-500">
             <Check>Sin planillas de Excel</Check>
             <Check>GPS, LoRaWAN y RFID</Check>
             <Check>Alta en minutos</Check>
@@ -118,36 +118,36 @@ function Check({ children }: { children: React.ReactNode }) {
 
 function HeroPanel() {
   const rows = [
-    { n: 'Motogenerador Honda EU70', t: 'GPS', s: 'Obra Godoy Cruz', c: 'text-emerald-400', b: '92%' },
-    { n: 'Rotomartillo Bosch GBH', t: 'LoRa', s: 'Obra Las Heras', c: 'text-emerald-400', b: '78%' },
-    { n: 'Niveladora láser', t: 'RFID', s: 'Depósito central', c: 'text-graphite-400', b: '—' },
-    { n: 'Compactadora Wacker', t: 'GPS', s: '⚠ Fuera de geocerca', c: 'text-amber-400', b: '64%' },
+    { n: 'Motogenerador Honda EU70', t: 'GPS', s: 'Obra Godoy Cruz', c: 'text-emerald-600', b: '92%' },
+    { n: 'Rotomartillo Bosch GBH', t: 'LoRa', s: 'Obra Las Heras', c: 'text-emerald-600', b: '78%' },
+    { n: 'Niveladora láser', t: 'RFID', s: 'Depósito central', c: 'text-graphite-500', b: '—' },
+    { n: 'Compactadora Wacker', t: 'GPS', s: '⚠ Fuera de geocerca', c: 'text-amber-600', b: '64%' },
   ];
   return (
     <div className="relative">
-      <div className="rounded-2xl border border-graphite-700 bg-graphite-800/70 p-4 shadow-2xl shadow-black/40">
+      <div className="rounded-2xl border border-graphite-200 bg-white p-4 shadow-xl shadow-graphite-900/5">
         <div className="mb-3 flex items-center justify-between px-1">
-          <span className="text-sm font-semibold text-white">Panel de activos</span>
-          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400">En vivo</span>
+          <span className="text-sm font-semibold text-graphite-900">Panel de activos</span>
+          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600">En vivo</span>
         </div>
         <div className="space-y-2">
           {rows.map((r) => (
-            <div key={r.n} className="flex items-center justify-between rounded-lg bg-graphite-900/70 px-3 py-2.5">
+            <div key={r.n} className="flex items-center justify-between rounded-lg bg-graphite-50 px-3 py-2.5">
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-graphite-100">{r.n}</p>
+                <p className="truncate text-sm font-medium text-graphite-800">{r.n}</p>
                 <p className={`text-xs ${r.c}`}>{r.s}</p>
               </div>
               <div className="flex items-center gap-3 pl-3">
-                <span className="rounded bg-graphite-700 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-graphite-200">{r.t}</span>
-                <span className="w-8 text-right text-xs text-graphite-400">{r.b}</span>
+                <span className="rounded bg-graphite-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-graphite-600">{r.t}</span>
+                <span className="w-8 text-right text-xs text-graphite-500">{r.b}</span>
               </div>
             </div>
           ))}
         </div>
       </div>
-      <div className="absolute -bottom-5 -left-5 hidden rounded-xl border border-graphite-700 bg-graphite-800 px-4 py-3 shadow-xl sm:block">
-        <p className="text-2xl font-extrabold text-white">-73%</p>
-        <p className="text-xs text-graphite-400">pérdidas de herramienta</p>
+      <div className="absolute -bottom-5 -left-5 hidden rounded-xl border border-graphite-200 bg-white px-4 py-3 shadow-lg sm:block">
+        <p className="text-2xl font-extrabold text-graphite-900">-73%</p>
+        <p className="text-xs text-graphite-500">pérdidas de herramienta</p>
       </div>
     </div>
   );
@@ -162,12 +162,12 @@ function Stats() {
     ['Minutos', 'para dar de alta un equipo'],
   ];
   return (
-    <section className="border-y border-graphite-800 bg-graphite-950/40">
+    <section className="border-y border-graphite-200 bg-graphite-50">
       <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-4 py-10 md:grid-cols-4">
         {stats.map(([a, b]) => (
           <div key={b}>
             <p className="text-2xl font-extrabold text-amber-500">{a}</p>
-            <p className="mt-1 text-sm text-graphite-400">{b}</p>
+            <p className="mt-1 text-sm text-graphite-500">{b}</p>
           </div>
         ))}
       </div>
@@ -180,8 +180,8 @@ function Problem() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-20">
       <div className="mx-auto max-w-2xl text-center">
-        <h2 className="text-3xl font-bold text-white sm:text-4xl">La herramienta cara desaparece sin seguimiento</h2>
-        <p className="mt-4 text-graphite-300">
+        <h2 className="text-3xl font-bold text-graphite-900 sm:text-4xl">La herramienta cara desaparece sin seguimiento</h2>
+        <p className="mt-4 text-graphite-600">
           Rotan entre obras, cambian de responsable y nadie sabe dónde quedaron. Cada equipo perdido
           es plata y una obra frenada. Las planillas no alcanzan.
         </p>
@@ -193,8 +193,8 @@ function Problem() {
           ['Mantenimiento tarde', 'Se rompe en obra porque nadie llevaba el plan de service.'],
         ].map(([t, d]) => (
           <div key={t} className="card">
-            <h3 className="text-lg font-semibold text-white">{t}</h3>
-            <p className="mt-2 text-sm text-graphite-400">{d}</p>
+            <h3 className="text-lg font-semibold text-graphite-900">{t}</h3>
+            <p className="mt-2 text-sm text-graphite-500">{d}</p>
           </div>
         ))}
       </div>
@@ -213,20 +213,20 @@ function Features() {
     [icons.chart, 'Reportes y auditoría', 'Utilización, pérdidas evitadas y auditorías de campo listas para exportar.'],
   ] as const;
   return (
-    <section id="features" className="border-y border-graphite-800 bg-graphite-950/30">
+    <section id="features" className="border-y border-graphite-200 bg-graphite-50">
       <div className="mx-auto max-w-6xl px-4 py-20">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold text-white sm:text-4xl">Todo lo que tu pañol necesita</h2>
-          <p className="mt-4 text-graphite-300">Una plataforma pensada para la operación real de una constructora.</p>
+          <h2 className="text-3xl font-bold text-graphite-900 sm:text-4xl">Todo lo que tu pañol necesita</h2>
+          <p className="mt-4 text-graphite-600">Una plataforma pensada para la operación real de una constructora.</p>
         </div>
         <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {feats.map(([p, t, d]) => (
-            <div key={t} className="card transition hover:border-amber-500/60">
-              <div className="mb-4 inline-flex rounded-xl bg-amber-500/10 p-3 text-amber-500">
+            <div key={t} className="card transition hover:border-amber-300 hover:shadow-md">
+              <div className="mb-4 inline-flex rounded-xl bg-amber-50 p-3 text-amber-600">
                 <Icon path={p} />
               </div>
-              <h3 className="text-lg font-semibold text-white">{t}</h3>
-              <p className="mt-2 text-sm text-graphite-400">{d}</p>
+              <h3 className="text-lg font-semibold text-graphite-900">{t}</h3>
+              <p className="mt-2 text-sm text-graphite-500">{d}</p>
             </div>
           ))}
         </div>
@@ -245,14 +245,14 @@ function HowItWorks() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-20">
       <div className="mx-auto max-w-2xl text-center">
-        <h2 className="text-3xl font-bold text-white sm:text-4xl">Andando en 3 pasos</h2>
+        <h2 className="text-3xl font-bold text-graphite-900 sm:text-4xl">Andando en 3 pasos</h2>
       </div>
       <div className="mt-12 grid gap-8 md:grid-cols-3">
         {steps.map(([n, t, d]) => (
           <div key={n} className="relative">
-            <span className="text-5xl font-extrabold text-graphite-700">{n}</span>
-            <h3 className="mt-2 text-lg font-semibold text-white">{t}</h3>
-            <p className="mt-2 text-sm text-graphite-400">{d}</p>
+            <span className="text-5xl font-extrabold text-graphite-200">{n}</span>
+            <h3 className="mt-2 text-lg font-semibold text-graphite-900">{t}</h3>
+            <p className="mt-2 text-sm text-graphite-500">{d}</p>
           </div>
         ))}
       </div>
@@ -264,40 +264,40 @@ function HowItWorks() {
 function Technology() {
   const tiers = [
     {
-      tag: 'GPS + 4G', name: 'Activos de alto valor', color: 'border-amber-500',
+      tag: 'GPS + 4G', name: 'Activos de alto valor', color: 'border-t-amber-500',
       desc: 'Motogeneradores y maquinaria con energía propia. Ubicación en tiempo real, antirrobo y horas de motor.',
       points: ['Tiempo real en toda la provincia', 'Geocercas y alertas de robo', 'Reporta horas para el service'],
     },
     {
-      tag: 'LoRaWAN', name: 'Equipos que rotan entre obras', color: 'border-graphite-600',
+      tag: 'LoRaWAN', name: 'Equipos que rotan entre obras', color: 'border-t-graphite-300',
       desc: 'Rotomartillos y herramienta eléctrica. Batería de años y datos casi gratis con gateway propio en la obra.',
       points: ['Autonomía de años', 'Alerta al salir de la obra', 'Infra barata y escalable'],
     },
     {
-      tag: 'RFID', name: 'Inventario y alta rotación', color: 'border-graphite-600',
+      tag: 'RFID', name: 'Inventario y alta rotación', color: 'border-t-graphite-300',
       desc: 'Herramienta manual y accesorios. Control de entrada/salida del depósito y auditorías rápidas.',
       points: ['Etiquetas de centavos', 'Check-in/out en portería', 'Inventario en minutos'],
     },
   ];
   return (
-    <section id="tecnologia" className="border-y border-graphite-800 bg-graphite-950/30">
+    <section id="tecnologia" className="border-y border-graphite-200 bg-graphite-50">
       <div className="mx-auto max-w-6xl px-4 py-20">
         <div className="mx-auto max-w-2xl text-center">
-          <span className="text-sm font-semibold uppercase tracking-wide text-amber-500">Hardware-agnóstico</span>
-          <h2 className="mt-2 text-3xl font-bold text-white sm:text-4xl">La tecnología justa para cada herramienta</h2>
-          <p className="mt-4 text-graphite-300">
+          <span className="text-sm font-semibold uppercase tracking-wide text-amber-600">Hardware-agnóstico</span>
+          <h2 className="mt-2 text-3xl font-bold text-graphite-900 sm:text-4xl">La tecnología justa para cada herramienta</h2>
+          <p className="mt-4 text-graphite-600">
             No te casás con un proveedor. Trazza combina tecnologías según el valor de cada equipo y tu presupuesto.
           </p>
         </div>
         <div className="mt-12 grid gap-6 lg:grid-cols-3">
           {tiers.map((t) => (
             <div key={t.name} className={`card border-t-4 ${t.color}`}>
-              <span className="rounded bg-graphite-700 px-2 py-1 text-xs font-bold uppercase tracking-wide text-amber-400">{t.tag}</span>
-              <h3 className="mt-4 text-xl font-semibold text-white">{t.name}</h3>
-              <p className="mt-2 text-sm text-graphite-400">{t.desc}</p>
+              <span className="rounded bg-amber-50 px-2 py-1 text-xs font-bold uppercase tracking-wide text-amber-700">{t.tag}</span>
+              <h3 className="mt-4 text-xl font-semibold text-graphite-900">{t.name}</h3>
+              <p className="mt-2 text-sm text-graphite-500">{t.desc}</p>
               <ul className="mt-4 space-y-2">
                 {t.points.map((p) => (
-                  <li key={p} className="flex items-start gap-2 text-sm text-graphite-300">
+                  <li key={p} className="flex items-start gap-2 text-sm text-graphite-600">
                     <Icon path={icons.chip} className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" /> {p}
                   </li>
                 ))}
@@ -323,23 +323,23 @@ function Pricing() {
   return (
     <section id="precios" className="mx-auto max-w-6xl px-4 py-20">
       <div className="mx-auto max-w-2xl text-center">
-        <h2 className="text-3xl font-bold text-white sm:text-4xl">Precios claros, en dólares</h2>
-        <p className="mt-4 text-graphite-300">Suscripción por activo. Hardware en leasing para no inmovilizar tu capital.</p>
+        <h2 className="text-3xl font-bold text-graphite-900 sm:text-4xl">Precios claros, en dólares</h2>
+        <p className="mt-4 text-graphite-600">Suscripción por activo. Hardware en leasing para no inmovilizar tu capital.</p>
       </div>
       <div className="mt-12 grid gap-6 lg:grid-cols-3">
         {plans.map((p) => (
-          <div key={p.name} className={`card relative ${p.hl ? 'border-amber-500 ring-1 ring-amber-500/40' : ''}`}>
+          <div key={p.name} className={`card relative ${p.hl ? 'border-amber-400 ring-1 ring-amber-300' : ''}`}>
             {p.hl && (
               <span className="absolute -top-3 left-6 rounded-full bg-amber-500 px-3 py-1 text-xs font-bold text-graphite-950">Más elegido</span>
             )}
-            <h3 className="text-lg font-semibold text-white">{p.name}</h3>
+            <h3 className="text-lg font-semibold text-graphite-900">{p.name}</h3>
             <div className="mt-3 flex items-end gap-1">
-              <span className="text-3xl font-extrabold text-white">{p.price}</span>
-              <span className="pb-1 text-sm text-graphite-400">{p.unit}</span>
+              <span className="text-3xl font-extrabold text-graphite-900">{p.price}</span>
+              <span className="pb-1 text-sm text-graphite-500">{p.unit}</span>
             </div>
             <ul className="mt-6 space-y-3">
               {p.feats.map((f) => (
-                <li key={f} className="flex items-start gap-2 text-sm text-graphite-300">
+                <li key={f} className="flex items-start gap-2 text-sm text-graphite-600">
                   <Icon path={icons.shield} className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" /> {f}
                 </li>
               ))}
@@ -356,11 +356,11 @@ function Pricing() {
 function FinalCTA() {
   return (
     <section className="mx-auto max-w-6xl px-4 pb-20">
-      <div className="overflow-hidden rounded-3xl border border-graphite-700 bg-gradient-to-br from-graphite-800 to-graphite-950 p-10 text-center md:p-16">
-        <h2 className="mx-auto max-w-2xl text-3xl font-bold text-white sm:text-4xl">
+      <div className="overflow-hidden rounded-3xl border border-amber-200 bg-amber-50 p-10 text-center md:p-16">
+        <h2 className="mx-auto max-w-2xl text-3xl font-bold text-graphite-900 sm:text-4xl">
           Dejá de perder herramientas caras
         </h2>
-        <p className="mx-auto mt-4 max-w-xl text-graphite-300">
+        <p className="mx-auto mt-4 max-w-xl text-graphite-600">
           Sumá tu primer equipo hoy y ganá visibilidad total de tu flota. Sin instalaciones complicadas.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -375,11 +375,11 @@ function FinalCTA() {
 /* ------------------------------ Footer ------------------------------ */
 function Footer() {
   return (
-    <footer className="border-t border-graphite-800">
+    <footer className="border-t border-graphite-200 bg-white">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-10 sm:flex-row">
         <div className="flex items-center gap-2">
           <Logo className="h-7 w-7" />
-          <span className="font-extrabold text-white">Trazza</span>
+          <span className="font-extrabold text-graphite-900">Trazza</span>
           <span className="text-sm text-graphite-500">· Seguimiento de herramientas</span>
         </div>
         <p className="text-sm text-graphite-500">Mendoza, Argentina · © {new Date().getFullYear()} Trazza</p>
