@@ -205,6 +205,35 @@ El transporte se configura a nivel plataforma en `.env`:
 Sin canales configurados, las alertas se registran igual (el outbox se marca como
 procesado). Probá el circuito con el botón *Enviar prueba* del panel.
 
+## Migraciones (bases ya inicializadas)
+
+El init de `infra/db/init/` corre **sólo en una base nueva**. Si ya tenés datos y
+actualizás a una versión con cambios de esquema, aplicá las migraciones de
+`infra/db/migrations/` (idempotentes) sin recrear el volumen:
+
+```bash
+set -a; . ./.env; set +a
+docker compose exec -T db \
+  psql -v ON_ERROR_STOP=1 -v app_user="$APP_DB_USER" \
+       -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  < infra/db/migrations/001_devices_notifications.sql
+```
+
+`001` agrega `devices.key_prefix`, `device_keys`, `notification_settings` y
+`notification_outbox` (credenciales por dispositivo + notificaciones).
+
+### MinIO de Chainguard: permisos del volumen
+
+El build de Chainguard corre como usuario **no-root** (uid 65532). Si el volumen
+`minio-data` fue creado antes (por la imagen oficial, que corría como root),
+MinIO no puede escribir (`Unable to write to the backend`). Ajustá el dueño una vez:
+
+```bash
+docker compose stop minio
+docker run --rm -v trazza_minio-data:/data alpine chown -R 65532:65532 /data
+docker compose up -d minio
+```
+
 ## Testing
 
 - **Unit (API):** `cd apps/api && npm test` (node --test).
