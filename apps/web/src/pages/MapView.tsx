@@ -9,6 +9,8 @@ const MENDOZA: [number, number] = [-68.8458, -32.8895];
 
 const OSM_STYLE: any = {
   version: 8,
+  // Servidor de glyphs (necesario para las etiquetas de texto de los activos).
+  glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
   sources: {
     osm: {
       type: 'raster',
@@ -89,12 +91,12 @@ export default function MapView({
           'circle-radius': 7,
           'circle-color': '#f59e0b',
           'circle-stroke-width': 2,
-          'circle-stroke-color': '#0e1116',
+          'circle-stroke-color': '#ffffff',
         } });
       map.addLayer({ id: 'assets-label', type: 'symbol', source: 'assets',
-        layout: { 'text-field': ['get', 'name'], 'text-size': 11, 'text-offset': [0, 1.4],
-          'text-anchor': 'top' },
-        paint: { 'text-color': '#e5e7eb', 'text-halo-color': '#0e1116', 'text-halo-width': 1.5 } });
+        layout: { 'text-field': ['get', 'name'], 'text-font': ['Open Sans Regular'],
+          'text-size': 11, 'text-offset': [0, 1.4], 'text-anchor': 'top' },
+        paint: { 'text-color': '#1f2937', 'text-halo-color': '#ffffff', 'text-halo-width': 1.6 } });
 
       readyRef.current = true;
       (map.getSource('assets') as any)?.setData(assetsFC(assetsRef.current));
@@ -124,5 +126,5 @@ export default function MapView({
     if (mapRef.current) mapRef.current.getCanvas().style.cursor = picking ? 'crosshair' : '';
   }, [picking]);
 
-  return <div ref={containerRef} className="h-[420px] w-full overflow-hidden rounded-xl border border-graphite-700" />;
+  return <div ref={containerRef} className="h-[420px] w-full overflow-hidden rounded-xl border border-graphite-200" />;
 }
