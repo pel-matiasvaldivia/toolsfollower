@@ -139,6 +139,31 @@ CREATE TABLE alerts (
 );
 CREATE INDEX ON alerts (tenant_id, created_at DESC);
 
+CREATE TABLE notification_settings (
+  tenant_id     uuid PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
+  enabled       boolean NOT NULL DEFAULT true,
+  emails        text,   -- destinatarios de email, separados por comas
+  whatsapp      text,   -- números E.164 (+549...), separados por comas
+  min_severity  text NOT NULL DEFAULT 'warning', -- info | warning | critical
+  updated_at    timestamptz NOT NULL DEFAULT now()
+);
+
+-- Cola de notificaciones (GLOBAL, sin RLS): la procesa el worker `notifier`,
+-- que resuelve los destinatarios por tenant y envía por email/WhatsApp.
+CREATE TABLE notification_outbox (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id   uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  alert_id    uuid REFERENCES alerts(id) ON DELETE CASCADE,
+  kind        text NOT NULL,
+  severity    text NOT NULL,
+  message     text NOT NULL,
+  asset_name  text,
+  attempts    int NOT NULL DEFAULT 0,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  sent_at     timestamptz
+);
+CREATE INDEX ON notification_outbox (sent_at, created_at);
+
 CREATE TABLE audit_log (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id  uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

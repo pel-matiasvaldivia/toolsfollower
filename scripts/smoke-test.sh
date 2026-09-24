@@ -33,7 +33,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "🚀 Levantando stack (build local)…"
-$COMPOSE up -d --build db redis mqtt minio api web bridge
+$COMPOSE up -d --build db redis mqtt minio api web bridge notifier
 
 echo "⏳ Esperando a la API…"
 ok=""
@@ -163,6 +163,30 @@ curl -sf -X PUT "$API/assets/$ASSET/photo" "${auth[@]}" \
 PURL=$(curl -sf "$API/assets" "${auth[@]}" | jq -r --arg id "$ASSET" '[.assets[] | select(.id==$id)][0].photo_url')
 [ -n "$PURL" ] && [ "$PURL" != "null" ] || { echo "❌ el activo no quedó con foto"; exit 1; }
 echo "✓ foto de activo subida a MinIO (URL prefirmada) verificada"
+
+# Notificaciones: configurar destinatarios y verificar el flujo del outbox.
+curl -sf -X PUT "$API/notifications/settings" "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"enabled":true,"emails":"jefe@obra.test","whatsapp":"+5492610000000","minSeverity":"warning"}' >/dev/null
+NSET=$(curl -sf "$API/notifications/settings" "${auth[@]}" | jq -r .settings.emails)
+[ "$NSET" = "jefe@obra.test" ] || { echo "❌ no se guardó la config de notificaciones"; exit 1; }
+echo "✓ configuración de notificaciones guardada"
+
+# La alerta geofence_exit generada antes debe haberse encolado en el outbox…
+OBX=$($COMPOSE exec -T db psql -U "${POSTGRES_USER:-postgres}" -d "$DB_NAME" -tAc \
+  "SELECT count(*) FROM notification_outbox WHERE tenant_id='$TENANT' AND kind='geofence_exit';")
+[ "$OBX" -ge 1 ] || { echo "❌ la alerta no se encoló en el outbox (filas: $OBX)"; exit 1; }
+echo "✓ alerta encolada en el outbox de notificaciones"
+
+# …y el worker notifier debe procesarla (sin SMTP configurado igual marca sent_at).
+PEND=""
+for _ in $(seq 1 15); do
+  PEND=$($COMPOSE exec -T db psql -U "${POSTGRES_USER:-postgres}" -d "$DB_NAME" -tAc \
+    "SELECT count(*) FROM notification_outbox WHERE tenant_id='$TENANT' AND sent_at IS NULL;")
+  [ "$PEND" = "0" ] && break
+  sleep 1
+done
+[ "$PEND" = "0" ] || { echo "❌ el notifier no procesó el outbox (pendientes: $PEND)"; $COMPOSE logs notifier | tail -20; exit 1; }
+echo "✓ worker notifier procesó el outbox"
 
 # Verificar aislamiento RLS: un tenant nuevo no ve el activo anterior.
 TOKEN2=$(curl -sf -X POST "$API/auth/register" -H 'Content-Type: application/json' \

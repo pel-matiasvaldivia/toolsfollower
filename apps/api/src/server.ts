@@ -9,6 +9,7 @@ import { registerGeofenceRoutes } from './routes/geofences.js';
 import { registerMaintenanceRoutes } from './routes/maintenance.js';
 import { registerDeviceRoutes } from './routes/devices.js';
 import { registerAdapterRoutes } from './routes/adapters.js';
+import { registerNotificationRoutes } from './routes/notifications.js';
 import { ensureBucket } from './services/storage.js';
 
 declare module '@fastify/jwt' {
@@ -47,6 +48,7 @@ await registerGeofenceRoutes(app);
 await registerMaintenanceRoutes(app);
 await registerDeviceRoutes(app);
 await registerAdapterRoutes(app);
+await registerNotificationRoutes(app);
 
 // Bucket de fotos (best-effort: si MinIO no está, la API arranca igual).
 ensureBucket().catch((err) =>

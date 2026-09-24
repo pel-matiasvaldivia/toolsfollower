@@ -17,6 +17,7 @@ api ── PostgreSQL (TimescaleDB + PostGIS, RLS por tenant)
     ── MinIO (fotos/documentos)
 mqtt (Mosquitto) ── ingesta de dispositivos GPS/LoRa
 bridge ── consume el broker MQTT y normaliza cada mensaje a la ingesta
+notifier ── procesa la cola de alertas y envía por email/WhatsApp
 traccar ── recibe los protocolos de los rastreadores y reenvía
            posiciones a api:8080/adapters/traccar (red interna)
 ```
@@ -115,6 +116,8 @@ cd apps/web && npm install && npm run dev      # :5173 (proxya /api -> :8091)
 | PUT | `/assets/:id/photo` | Confirma la foto subida (guarda la key) |
 | GET/POST | `/geofences` | Geocercas (círculo o polígono), GeoJSON |
 | GET | `/alerts` | Alertas (geocerca, mantenimiento, batería) |
+| GET/PUT | `/notifications/settings` | Destinatarios email/WhatsApp, severidad mínima, on/off |
+| POST | `/notifications/test` | Encola una notificación de prueba |
 | GET/POST | `/maintenance/plans` | Planes de mantenimiento (por calendario u horas de uso) |
 | POST | `/maintenance/plans/:id/complete` | Registra el service y reprograma el vencimiento |
 | GET/POST | `/devices` | Alta y listado de dispositivos (el alta devuelve la credencial una vez) |
@@ -184,6 +187,24 @@ cd apps/web && npm install && npm run dev      # :5173 (proxya /api -> :8091)
      genérico `trazza/ingest`). El `bridge` corre en **una sola instancia** (no
      escalar). Asegurá el broker con usuarios/ACLs en producción (`mosquitto.conf`).
 
+## Notificaciones (email / WhatsApp)
+
+Cuando se abre una alerta (geocerca, mantenimiento, batería), se encola en
+`notification_outbox` y el worker **`notifier`** la envía a los destinatarios del
+cliente. Cada tenant configura sus destinatarios y la severidad mínima en el panel
+(sección *Notificaciones*) o por API (`/notifications/settings`).
+
+El transporte se configura a nivel plataforma en `.env`:
+
+- **Email (SMTP):** `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`,
+  `SMTP_SECURE`. Dejá `SMTP_HOST` vacío para deshabilitar email.
+- **WhatsApp (Cloud API de Meta):** `WHATSAPP_TOKEN` + `WHATSAPP_PHONE_ID`. Vacío =
+  deshabilitado. Fuera de la ventana de 24 h, WhatsApp exige plantillas aprobadas;
+  para avisos al propio equipo suele alcanzar la mensajería de sesión.
+
+Sin canales configurados, las alertas se registran igual (el outbox se marca como
+procesado). Probá el circuito con el botón *Enviar prueba* del panel.
+
 ## Testing
 
 - **Unit (API):** `cd apps/api && npm test` (node --test).
@@ -208,4 +229,5 @@ MVP actual: auth multitenant, activos, custodia (esquema), ingesta de telemetrí
 landing, mapa en vivo (MapLibre), geocercas + motor de alertas, mantenimiento por horas
 de uso, alta de dispositivos, adapters de Traccar (GPS/4G) y LoRaWAN (ChirpStack/TTS),
 bridge MQTT→ingesta, credenciales por dispositivo y fotos de activos a MinIO
-(URLs prefirmadas). Siguiente: reportes/exportación y app de campo.
+(URLs prefirmadas) y notificaciones por email/WhatsApp ante alertas.
+Siguiente: reportes/exportación y app de campo.

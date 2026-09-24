@@ -94,6 +94,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [devices, setDevices] = useState<any[]>([]);
   const [error, setError] = useState('');
 
+  // Configuración de notificaciones.
+  const [notif, setNotif] = useState<any>({ enabled: true, emails: '', whatsapp: '', min_severity: 'warning' });
+  const [notifMsg, setNotifMsg] = useState('');
+
   // Form de alta de dispositivo.
   const [dvKind, setDvKind] = useState<'gps' | 'lora' | 'rfid'>('gps');
   const [dvIdent, setDvIdent] = useState('');
@@ -120,12 +124,31 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const load = async () => {
     try {
-      const [s, a, g, al, mp, dv] = await Promise.all([
+      const [s, a, g, al, mp, dv, nt] = await Promise.all([
         api('/summary'), api('/assets'), api('/geofences'), api('/alerts'),
-        api('/maintenance/plans'), api('/devices'),
+        api('/maintenance/plans'), api('/devices'), api('/notifications/settings'),
       ]);
       setSummary(s); setAssets(a.assets); setGeofences(g.geofences);
       setAlerts(al.alerts); setPlans(mp.plans); setDevices(dv.devices);
+      setNotif(nt.settings);
+    } catch (err: any) { setError(err.message); }
+  };
+
+  const saveNotif = async () => {
+    setNotifMsg('');
+    try {
+      await api('/notifications/settings', { method: 'PUT', body: JSON.stringify({
+        enabled: notif.enabled, emails: notif.emails, whatsapp: notif.whatsapp, minSeverity: notif.min_severity,
+      })});
+      setNotifMsg('Guardado ✓');
+    } catch (err: any) { setError(err.message); }
+  };
+
+  const testNotif = async () => {
+    setNotifMsg('');
+    try {
+      await api('/notifications/test', { method: 'POST', body: JSON.stringify({}) });
+      setNotifMsg('Prueba encolada — revisá email/WhatsApp.');
     } catch (err: any) { setError(err.message); }
   };
   useEffect(() => { load(); }, []);
@@ -301,6 +324,46 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             </div>
           </div>
         )}
+
+        {/* Notificaciones */}
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold text-white">Notificaciones</h2>
+          <p className="mt-1 text-sm text-graphite-400">Avisos por email / WhatsApp cuando se abre una alerta (geocerca, mantenimiento, batería).</p>
+          <div className="mt-3 rounded-xl border border-graphite-700 bg-graphite-800/40 p-4">
+            <label className="flex items-center gap-2 text-sm text-graphite-200">
+              <input type="checkbox" checked={!!notif.enabled} onChange={(e) => setNotif({ ...notif, enabled: e.target.checked })} />
+              Notificaciones activadas
+            </label>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <label className="text-sm text-graphite-300">
+                <span className="mb-1 block">Emails (separados por coma)</span>
+                <input value={notif.emails ?? ''} onChange={(e) => setNotif({ ...notif, emails: e.target.value })}
+                  placeholder="jefe@obra.com, deposito@obra.com"
+                  className="w-full rounded-lg border border-graphite-700 bg-graphite-900 px-3 py-2 text-sm text-white outline-none focus:border-amber-500" />
+              </label>
+              <label className="text-sm text-graphite-300">
+                <span className="mb-1 block">WhatsApp (E.164, separados por coma)</span>
+                <input value={notif.whatsapp ?? ''} onChange={(e) => setNotif({ ...notif, whatsapp: e.target.value })}
+                  placeholder="+5492611234567"
+                  className="w-full rounded-lg border border-graphite-700 bg-graphite-900 px-3 py-2 text-sm text-white outline-none focus:border-amber-500" />
+              </label>
+            </div>
+            <div className="mt-3 flex flex-wrap items-end gap-3">
+              <label className="text-sm text-graphite-300">
+                <span className="mb-1 block">Severidad mínima</span>
+                <select value={notif.min_severity ?? 'warning'} onChange={(e) => setNotif({ ...notif, min_severity: e.target.value })}
+                  className="rounded-lg border border-graphite-700 bg-graphite-900 px-3 py-2 text-sm text-white outline-none focus:border-amber-500">
+                  <option value="info">Info (todas)</option>
+                  <option value="warning">Warning</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </label>
+              <button onClick={saveNotif} className="btn-primary py-2 text-sm">Guardar</button>
+              <button onClick={testNotif} className="btn-ghost py-2 text-sm">Enviar prueba</button>
+              {notifMsg && <span className="text-sm text-amber-300">{notifMsg}</span>}
+            </div>
+          </div>
+        </div>
 
         {/* Mantenimiento */}
         <div className="mt-8">

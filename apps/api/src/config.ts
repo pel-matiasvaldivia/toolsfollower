@@ -18,4 +18,19 @@ export const config = {
     // Host público con el que el navegador alcanza MinIO (para firmar las URLs).
     publicUrl: process.env.MINIO_PUBLIC_URL ?? 'http://localhost:9000',
   },
+  // Notificaciones (worker `notifier`).
+  smtp: {
+    host: process.env.SMTP_HOST ?? '',
+    port: Number(process.env.SMTP_PORT ?? 587),
+    user: process.env.SMTP_USER ?? '',
+    pass: process.env.SMTP_PASS ?? '',
+    from: process.env.SMTP_FROM ?? 'Trazza <no-reply@trazza.local>',
+    secure: (process.env.SMTP_SECURE ?? 'false') === 'true',
+  },
+  whatsapp: {
+    token: process.env.WHATSAPP_TOKEN ?? '',
+    phoneId: process.env.WHATSAPP_PHONE_ID ?? '',
+    apiBase: process.env.WHATSAPP_API_BASE ?? 'https://graph.facebook.com/v21.0',
+  },
+  notifierIntervalMs: Number(process.env.NOTIFIER_INTERVAL_MS ?? 5000),
 };
