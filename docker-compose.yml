@@ -56,8 +56,10 @@ services:
     networks: [trazza]
 
   minio:
-    # MinIO retiró sus imágenes de Docker Hub (oct. 2025); la oficial vive en quay.io.
-    image: quay.io/minio/minio:latest
+    # MinIO (open source) fue archivado y quay.io/Docker Hub dejaron de servir sus
+    # imágenes anónimamente (sep. 2026). Usamos el build de Chainguard (mismo binario,
+    # mismos env y comando), con mirror público en Docker Hub. Override con MINIO_IMAGE.
+    image: ${MINIO_IMAGE:-chainguard/minio:latest}
     <<: *restart
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
@@ -93,8 +95,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
-        condition: service_started
+      # MinIO NO es dependencia dura: la API arranca igual si no está (las fotos
+      # quedan inactivas hasta que MinIO esté arriba). Así un problema de MinIO
+      # nunca bloquea el deploy del resto del stack.
     ports:
       # Expuesto para dispositivos / apps móviles vía NPM (api.tudominio.com)
       - "${API_PORT:-8091}:8080"
