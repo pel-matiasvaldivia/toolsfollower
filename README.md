@@ -33,7 +33,7 @@ de Docker** (`http://api:8080/adapters/traccar`). No hay que instalar nada apart
 | DB | PostgreSQL 16 + TimescaleDB + PostGIS | `timescale/timescaledb-ha:pg16` |
 | Cache | Redis 7 | `redis:7-alpine` |
 | MQTT | Mosquitto 2 | `eclipse-mosquitto:2` |
-| Storage | MinIO | `minio/minio` |
+| Storage | MinIO (build de Chainguard) | `chainguard/minio` |
 
 Las imágenes de API y Web se buildean en **GitHub Actions** (multi-arch amd64/arm64,
 multi-stage, no-root) y se publican en **GHCR**. El stack de producción las **consume**;
